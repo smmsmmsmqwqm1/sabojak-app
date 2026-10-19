@@ -95,6 +95,8 @@
             if (![0, 1, 2].includes(ev.dur.dots || 0)) { ev.dur.dots = 0; fix('dots'); }
             ev.dur.dots = ev.dur.dots || 0;
             if (ev.dur.tuplet && !tids.has(ev.dur.tuplet)) { delete ev.dur.tuplet; fix('tuplet-ref'); }
+            // 손으로 옮긴 가로 위치: 마디 폭 비율 -1~1 (이상한 값이면 자동으로)
+            if (ev.xShift !== undefined && !(typeof ev.xShift === 'number' && isFinite(ev.xShift) && Math.abs(ev.xShift) <= 1)) { delete ev.xShift; fix('xshift'); }
             if (!Array.isArray(ev.articulations)) ev.articulations = [];
             ev.articulations = ev.articulations.filter(a => ARTIC.indexOf(a) >= 0 || (typeof a === 'string' && a.startsWith('x-')));
             if (ev.kind === 'note') {

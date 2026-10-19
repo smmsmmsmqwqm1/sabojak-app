@@ -232,6 +232,17 @@
     });
     return bd < 14 ? best : null;
   };
+  // 실제로 마디(오선 영역) 위를 눌렀을 때만 그 마디 — 줄 사이 · 여백의 빈 종이는 null (보기만 하려는 톡이 입력으로 바뀌지 않게)
+  E.measureAt = function (pt) {
+    const tol = E.L.spMm * 0.8;
+    let found = null;
+    Object.keys(E.L.measureBox).forEach(mi => {
+      const b = E.L.measureBox[mi];
+      if (b.page !== pt.page) return;
+      if (pt.x >= b.x0 && pt.x <= b.x1 && pt.y >= b.y0 - tol && pt.y <= b.y1 + tol) found = Number(mi);
+    });
+    return found;
+  };
   // 마디 안 x 에 가장 가까운 열의 틱
   E.tickAt = function (mi, x) {
     const b = E.L.measureBox[mi];

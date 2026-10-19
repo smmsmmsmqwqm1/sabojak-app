@@ -95,9 +95,11 @@
       } else if (!mode && Math.hypot(dx, dy) <= TAP_MOVE && dt < 500 && e.type !== 'pointercancel') {
         const now = Date.now();
         const dbl = lastTap && now - lastTap.t < DOUBLE_MS && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < DOUBLE_PX;
-        lastTap = dbl ? null : { t: now, x: e.clientX, y: e.clientY };
         const pt = E.toPage(e.clientX, e.clientY);
-        if (dbl) SJ.EditorTools.onDoubleTap(pt); else SJ.EditorTools.onTap(pt, e);
+        // 두 번째 톡은 첫 톡 자리로 판단 (첫 톡에 마디 도구 막대가 나타나며 쪽이 살짝 밀려도 같은 마디)
+        const firstPt = dbl ? lastTap.pt : null;
+        lastTap = dbl ? null : { t: now, x: e.clientX, y: e.clientY, pt };
+        if (dbl) SJ.EditorTools.onDoubleTap(firstPt || pt); else SJ.EditorTools.onTap(pt, e);
       }
       mode = null; start = null;
     };

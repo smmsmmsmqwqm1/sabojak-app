@@ -47,6 +47,8 @@
           const si = segIndex.get(x.start);
           let nx = x0 + (si !== undefined ? pl.xs[si] : pl.contentStart);
           if (x.grace) nx += x.graceOffset || -1.5;
+          // 손으로 옮긴 가로 위치 (ev.xShift = 마디 폭에 대한 비율, 없으면 자동). 마디 안에서만
+          if (x.ev.xShift) nx = Math.max(x0 + pl.contentStart - 0.4, Math.min(x0 + pl.contentEnd - 1.2, nx + x.ev.xShift * width));
           x.nx = nx;
         });
         vv.infos.forEach(x => {

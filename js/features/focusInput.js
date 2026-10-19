@@ -36,8 +36,14 @@
       if (!g || e.pointerId !== g.id) return;
       const p = local(e);
       const sp = F().L ? F().L.spPx : 20;
-      // 음표 머리를 잡고 위아래로 끌기 = 높이 바꾸기
-      if (g.res && g.res.type === 'select' && !g.res.rest && Math.abs(p.y - g.y0) > sp * 0.4 && Math.abs(p.x - g.x0) < 60) { g.dragHead = true; FI.preview(Object.assign({}, g.res, { type: 'move' }), p.y); return; }
+      const dx = p.x - g.x0, dy = p.y - g.y0;
+      // 잡은 음표: 처음 움직인 방향으로 고정 — 옆 = 가로 위치 옮기기, 위아래 = 높이 바꾸기
+      if (g.dragX) { FI.dragShift(g.res, dx); return; }
+      if (g.dragHead) { FI.preview(Object.assign({}, g.res, { type: 'move' }), p.y); return; }
+      if (g.res && g.res.type === 'select') {
+        if (Math.abs(dx) > sp * 0.5 && Math.abs(dx) > Math.abs(dy) * 1.2) { g.dragX = true; FI.hidePreview(); FI.beginShift(g.res); FI.dragShift(g.res, dx); return; }
+        if (!g.res.rest && Math.abs(dy) > sp * 0.4 && Math.abs(dx) < 60) { g.dragHead = true; FI.preview(Object.assign({}, g.res, { type: 'move' }), p.y); return; }
+      }
       if (g.res && (g.res.type === 'insert' || g.res.type === 'chord') && Math.abs(p.x - g.x0) < 60) FI.preview(g.res, p.y);
       else FI.hidePreview();
     });
@@ -47,6 +53,7 @@
       FI.hidePreview();
       if (e.type === 'pointercancel' || !d.res) return;
       const dx = p.x - d.x0, dy = p.y - d.y0;
+      if (d.dragX) { FI.endShift(d.res); return; }
       if (d.dragHead) { FI.moveHead(d.res, p.y); return; }
       if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2) { F().go(dx < 0 ? 1 : -1); return; }   // 옆으로 밀기 = 마디 이동
       if (d.res.type === 'insert' || d.res.type === 'chord') { FI.commitAt(d.res, p.y); return; }
@@ -144,6 +151,39 @@
       st.sel = { ei: res.ei, hi: ev.heads.indexOf(moved) };
     });
     SJ.Platform.haptic('light');
+  };
+
+  /* 가로 위치 옮기기 (손으로 정한 자리): 기본은 자동 배치, 끌어 놓으면 그 자리.
+   * 값 = ev.xShift (마디 폭에 대한 비율) → 페이지 · 인쇄 · 다른 화면 크기에서도 같은 자리. 되돌리기 한 번 = 끌기 한 번 */
+  let shiftStart = 0;
+  FI.beginShift = function (res) {
+    const st = F().st;
+    F().change(m => { const ev = ME.voice(m, st.staffId, st.vi).events[res.ei]; if (ev) ev.xShift = ev.xShift || 0; }, { noRender: true });
+    const ev = ME.voice(st.measure, st.staffId, st.vi).events[res.ei];
+    shiftStart = ev ? ev.xShift || 0 : 0;
+  };
+  FI.dragShift = function (res, dxPx) {
+    const st = F().st, L = F().L;
+    const ev = ME.voice(st.measure, st.staffId, st.vi).events[res.ei];
+    if (!ev || !L) return;
+    const w = Math.max(1, L.cur.x1 - L.cur.x0);
+    ev.xShift = U.clamp(shiftStart + dxPx / w, -0.9, 0.9);
+    F().render();
+  };
+  FI.endShift = function (res) {
+    const st = F().st;
+    const ev = ME.voice(st.measure, st.staffId, st.vi).events[res.ei];
+    if (ev && Math.abs(ev.xShift || 0) < 0.004) delete ev.xShift;
+    st.sel = { ei: res.ei, hi: res.hi || 0 };
+    F().render(); FI.drawTools();
+    SJ.Platform.haptic('light');
+    if (!SJ.Settings.get('shiftHintSeen')) { SJ.Settings.set('shiftHintSeen', true); UI.toast(t('자리를 옮겼어요 · 아래 [자동 위치]로 되돌릴 수 있어요')); }
+  };
+  FI.resetShift = function () {
+    const st = F().st;
+    if (!st.sel) return;
+    F().change(m => { const ev = ME.voice(m, st.staffId, st.vi).events[st.sel.ei]; if (ev) delete ev.xShift; });
+    FI.drawTools();
   };
 
   // 누르는 동안 미리보기: 흐린 머리 + 덧줄 + 음이름
@@ -435,6 +475,8 @@
       r2.appendChild(nb(SJ.icon('flip'), t('이명동음'), () => FI.enharmonic(), { disabled: sel.ev.kind !== 'note' }));
       r2.appendChild(nb(SJ.icon('stem'), t('기둥 ') + ({ up: '↑', down: '↓' }[sel.ev.stem] || t('자동')), () => FI.cycle('stem', ['auto', 'up', 'down']), { disabled: sel.ev.kind !== 'note' }));
       r2.appendChild(nb(SJ.icon('beam'), t('빔 ') + ({ none: t('풀기'), force: t('묶기') }[sel.ev.beam] || t('자동')), () => FI.cycle('beam', ['auto', 'none', 'force']), { disabled: sel.ev.kind !== 'note' }));
+      // 손으로 옮긴 음표만: 자동 위치로 되돌리기
+      if (sel.ev.xShift) r2.appendChild(nb(SJ.icon('restore'), t('자동 위치'), () => FI.resetShift()));
       r2.appendChild(nb(SJ.icon('trash'), t('지우기'), () => FI.removeSel()));
     } else {
       'CDEFGAB'.split('').forEach(s => r2.appendChild(nb('<b style="font-size:17px">' + s + '</b>', t({ C: '도', D: '레', E: '미', F: '파', G: '솔', A: '라', B: '시' }[s]), () => FI.noteName(s))));

@@ -40,6 +40,7 @@
   };
 
   Lib.show = async function () {
+    if (window.__sjUpdate) { location.reload(); return; }    // 홈 화면 앱: 받아 둔 새 판 적용
     root.classList.remove('hidden');
     items = await St.list();
     Lib.draw();

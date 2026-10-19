@@ -50,7 +50,7 @@
     if (tool === 'lyrics') { if (ref && (ref.type === 'note' || ref.type === 'lyric')) SJ.LyricsTool.start(ref.eventId, ref.verse || 1); else UI.toast(t('음표를 톡 눌러 주세요')); return; }
     if (tool === 'expr') { SJ.ExprTool.onTap(pt, ref); return; }
     if (tool === 'measure') {
-      const mi = ref && ref.mi !== undefined ? ref.mi : ed.measureNear(pt);
+      const mi = ref && ref.mi !== undefined ? ref.mi : ed.measureAt(pt);
       if (mi === null || mi === undefined) return;
       ed.select({ type: 'measure', mi0: mi, mi1: mi, staffId: ref && ref.staffId });
       SJ.EditorSheets.measureSheet([mi]);
@@ -64,7 +64,7 @@
       ed.select({ type: 'note', eventId: ref.eventId, mi: ref.mi, staffId: ref.staffId, vi: ref.vi, head: ref.head });
       return;
     }
-    const mi = ref && ref.type === 'measure' ? ref.mi : ed.measureNear(pt);
+    const mi = ref && ref.type === 'measure' ? ref.mi : ed.measureAt(pt);
     if (mi === null || mi === undefined) { ed.select(null); return; }
     const sel = ed.sel;
     if (ed.rangeMode && sel && sel.type === 'measure') { ed.select({ type: 'measure', mi0: sel.mi0, mi1: mi, staffId: sel.staffId }); ed.rangeMode = false; return; }
@@ -75,7 +75,8 @@
     const ed = E();
     if (!pt || ed.tool !== 'select') return;
     const ref = ed.hitAt(pt);
-    const mi = ref && ref.mi !== undefined ? ref.mi : ed.measureNear(pt);
+    // 빈 종이(줄 사이 · 여백)를 두 번 톡 = 아무 일 없음. 마디 위일 때만 입력 모드
+    const mi = ref && ref.mi !== undefined ? ref.mi : ed.measureAt(pt);
     if (mi === null || mi === undefined) return;
     if (Store.readonly) { UI.toast(t('읽기 전용 악보예요')); return; }
     SJ.Focus.open(mi, (ref && ref.staffId) || Store.score.staves[0].id, { eventId: ref && ref.eventId });
