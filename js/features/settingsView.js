@@ -36,8 +36,9 @@
     ]));
     // 악보 모드
     body.append(h('h4', { text: t('악보 모드') }), h('div', { class: 'list' }, [
-      row(t('두 손가락 두 번 톡으로 나가기'), null, sw('perfExitTwoFinger')),
-      row(t('위 가운데 1초 누르기로 나가기'), null, sw('perfExitHold')),
+      // 나가는 방법은 늘 하나 이상(둘 다 끄면 아이폰에서 악보 모드를 못 나감 · 점검원 ⑤ 11-02)
+      row(t('두 손가락 두 번 톡으로 나가기'), null, sw('perfExitTwoFinger', v => { if (!v && S.get('perfExitHold') === false) { S.set('perfExitHold', true); UI.toast(t('나가는 방법 하나는 켜 둬야 해서 1초 누르기를 켰어요')); SJ.SettingsView.show(); } })),
+      row(t('위 가운데 1초 누르기로 나가기'), null, sw('perfExitHold', v => { if (!v && S.get('perfExitTwoFinger') === false) { S.set('perfExitTwoFinger', true); UI.toast(t('나가는 방법 하나는 켜 둬야 해서 두 손가락 톡을 켰어요')); SJ.SettingsView.show(); } })),
       row(t('넘김 효과'), null, UI.seg([{ label: t('없음'), value: 'none' }, { label: t('짧은 페이드'), value: 'fade' }], S.get('perfAnim'), v => S.set('perfAnim', v))),
       row(t('쪽 번호 표시'), null, sw('perfPageNum')),
       row(t('화면 맞춤 줄 수'), t('한 화면에 보일 줄'), UI.stepper(S.get('perfLines') || 3, 1, 8, v => S.set('perfLines', v), v => t('{n}줄', { n: v }))),

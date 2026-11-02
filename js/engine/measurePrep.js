@@ -120,7 +120,7 @@
           x.heads.forEach(h => {
             const tied = x.ei === 0 && tiedIn.has(st.id + x.vi + h.h.step + h.h.octave + (h.h.alter || 0));
             const prevTie = prevTieInVoice(x, h.h);
-            h.acc = state.visit(h.h, tied || prevTie);
+            h.acc = state.visit(h.h, tied || prevTie, tied && !prevTie);
           });
         });
       sInfo.voices.forEach(vv => vv.infos.forEach(x => { if (x.ev.kind === 'note') layoutChord(x); else layoutRest(x, multi, vv.vi); }));
@@ -211,9 +211,11 @@
     if (nd) {
       const dx0 = x.headRight + C.dotGap * s;
       const ys = new Set();
-      x.heads.forEach(h => {
+      // 머리마다 점 하나: 줄 위 머리는 위 칸, 그 칸이 이미 차 있으면(2도 화음) 아래 칸 — 위 머리부터 차례로(Gould · 점검원 ④ 11-02)
+      x.heads.slice().sort((a, b) => b.pos - a.pos).forEach(h => {
         let p = h.pos;
-        if (p % 2 === 0) p += (x.stemDir > 0 && x.heads.length === 1 && x.voice && false) ? -1 : 1;
+        if (p % 2 === 0) p += 1;
+        if (ys.has(p) && h.pos % 2 === 0) p = h.pos - 1;
         ys.add(p);
       });
       Array.from(ys).forEach(p => {

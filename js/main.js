@@ -17,6 +17,9 @@
     await SJ.Library.show();
     document.getElementById('boot').remove();
     SJ.Help.onboarding(false);
+    // 하던 악보 이어 쓰기: 편집하다 앱을 닫았으면 그 악보로 바로(직접 목록으로 나왔으면 목록에서 시작 · 점검원 ⑤ 11-02)
+    const last = SJ.Settings.get('lastScore');
+    if (last && SJ.Settings.get('onboarded')) { try { await App.openEditor(last); } catch (e) { SJ.Settings.set('lastScore', null); } }
 
     // 다른 앱에서 .sabojak 파일로 열렸을 때
     SJ.Platform.onOpenFile = f => App.openFiles([f]);
@@ -48,9 +51,10 @@
   };
 
   App.openEditor = async function (id, opts) {
-    if (SJ.Editor.isOpen()) await SJ.Editor.close();
+    if (SJ.Editor.isOpen() && !(await SJ.Editor.close())) return;
     const ok = await SJ.Editor.open(id, opts);
-    if (!ok) return;
+    if (!ok) { if (SJ.Settings.get('lastScore') === id) SJ.Settings.set('lastScore', null); return; }
+    SJ.Settings.set('lastScore', id);
     SJ.Library.hide();
     SJ.SettingsView.hide();
     App.stack = ['library'];
@@ -72,7 +76,8 @@
       return;
     }
     if (App.view === 'editor') {
-      await SJ.Editor.close();
+      if (!(await SJ.Editor.close())) return;   // 저장이 안 돼 머물기로 함
+      SJ.Settings.set('lastScore', null);        // 직접 목록으로 나옴 → 다음에 열면 목록에서
       App.view = 'library';
       App.stack = [];
       SJ.Library.show();

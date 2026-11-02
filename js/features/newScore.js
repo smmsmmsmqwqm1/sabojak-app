@@ -138,6 +138,8 @@
         const tempo = (tempoText.value.trim() || Number(bpm.value)) ? { text: U.nfc(tempoText.value.trim()), bpm: Number(bpm.value) || undefined } : null;
         const n = st.measuresMode === 'page' ? 80 : st.measures;
         let score;
+        // 지운 내 템플릿이 고른 값으로 남아 있으면 기본 구성으로(오류 대신 · 점검원 ⑤ 11-02)
+        if (st.tpl.startsWith('user:') && !userTpls.find(x => 'user:' + x.id === st.tpl)) st.tpl = 'preset:single';
         if (st.tpl.startsWith('user:')) {
           const tp = userTpls.find(x => 'user:' + x.id === st.tpl);
           score = SJ.Templates.toScore(tp, { title: U.nfc(title.value.trim()), composer: U.nfc(composer.value.trim()), time: st.time, key: st.key, tempo, measures: tp.withNotes ? undefined : n, paper: st.paper, orientation: st.orientation });

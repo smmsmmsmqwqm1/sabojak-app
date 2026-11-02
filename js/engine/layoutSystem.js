@@ -73,7 +73,8 @@
     const n = score.measures.length;
     const align = (opts && opts.align !== undefined) ? opts.align : !!(score.layout.alignGrid && score.layout.alignGrid.enabled);
     const nSetting = align ? (score.layout.alignGrid.measuresPerSystem || score.layout.measuresPerSystem || 'auto') : (score.layout.measuresPerSystem || 'auto');
-    const forceAfter = mi => !!(score.measures[mi].attrs.systemBreak || score.measures[mi].attrs.pageBreak);
+    // 인쇄용 줄바꿈 · 쪽바꿈 — 화면 폭에 맞춰 흘리는 보기(opts.ignoreBreaks)에서는 따르지 않는다(줄마다 들쭉날쭉 끊기지 않게)
+    const forceAfter = mi => !(opts && opts.ignoreBreaks) && !!(score.measures[mi].attrs.systemBreak || score.measures[mi].attrs.pageBreak);
     const systems = [];
 
     if (align) {

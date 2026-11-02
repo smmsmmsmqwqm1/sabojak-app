@@ -105,6 +105,11 @@
     const hist = (await PF.list(dir(id) + 'history')).sort();
     while (hist.length > HISTORY_KEEP) await PF.remove(hist.shift());
   };
+  // 지금 저장된 악보 파일 그대로를 기록에 남기기(덮어쓰기 전 등)
+  St.snapshotCurrent = async function (id) {
+    const text = await PF.read(dir(id) + 'score.json');
+    if (text) await St.snapshot(id, text);
+  };
   St.history = async function (id) {
     return (await PF.list(dir(id) + 'history')).sort().reverse();
   };

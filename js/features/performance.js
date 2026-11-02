@@ -132,7 +132,8 @@
         one = { x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId, big: (e.width || 0) > 40 || (e.height || 0) > 40 };
         // 위 가운데 1초 누르기 → 컨트롤 (설정으로 끌 수 있음)
         const relX = (e.clientX - W.left) / W.width, relY = (e.clientY - W.top) / W.height;
-        if (SJ.Settings.get('perfExitHold') !== false && relY < 0.16 && relX > 0.3 && relX < 0.7) {
+        // (두 방법을 다 꺼 둔 예전 설정이어도 1초 누르기는 살려 둔다 — 갇히지 않게)
+        if ((SJ.Settings.get('perfExitHold') !== false || SJ.Settings.get('perfExitTwoFinger') === false) && relY < 0.16 && relX > 0.3 && relX < 0.7) {
           holdT = setTimeout(() => { held = true; SJ.Platform.haptic('light'); PM.showCtrl(); }, HOLD_MS);
         }
       } else {
@@ -214,6 +215,7 @@
     SJ.Platform.keepAwake(false);
     st = null;
     pv.innerHTML = '';
+    if (window.__sjUpdate) { location.reload(); return; }   // 연주 중 받아 둔 새 판은 닫을 때 적용(점검원 ⑤ 11-02)
     if (from === 'library' && SJ.Library) SJ.Library.refresh();
   };
   PM.isOpen = () => !!st;

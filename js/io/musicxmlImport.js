@@ -197,7 +197,9 @@
             const step = txt(r, 'root-step'), alter = num(r, 'root-alter', 0);
             const k = kid(el, 'kind');
             let q = k ? (k.getAttribute('text') !== null ? k.getAttribute('text') : kindText(k.textContent.trim())) : '';
-            let text = step + (alter > 0 ? '#'.repeat(alter) : alter < 0 ? 'b'.repeat(-alter) : '') + q;
+            // 글자로 쓴 코드(N.C. · 한글 등): kind가 none이고 text가 있으면 글자만(앞에 근음을 붙이면 'CN.C.'가 됐음 · 점검원 ⑥ 11-02)
+            let text = k && k.textContent.trim() === 'none' && k.getAttribute('text') ? k.getAttribute('text')
+              : step + (alter > 0 ? '#'.repeat(alter) : alter < 0 ? 'b'.repeat(-alter) : '') + q;
             const b = kid(el, 'bass');
             if (b) { const ba = num(b, 'bass-alter', 0); text += '/' + txt(b, 'bass-step') + (ba > 0 ? '#' : ba < 0 ? 'b' : ''); }
             const tick = Math.round((cur + num(el, 'offset', 0)) * PPQ / div);

@@ -19,7 +19,8 @@
     while (i < score.staves.length) {
       const st = score.staves[i];
       const grp = [st];
-      if (st.groupId) while (i + grp.length < score.staves.length && score.staves[i + grp.length].groupId === st.groupId) grp.push(score.staves[i + grp.length]);
+      // 한 파트로 묶는 것은 중괄호(피아노 등 한 악기)만 — 대괄호(합창 SATB)는 보표마다 따로 파트(이름이 빠지던 것 · 점검원 ⑥ 11-02)
+      if (st.groupId && (st.groupType || 'brace') === 'brace') while (i + grp.length < score.staves.length && score.staves[i + grp.length].groupId === st.groupId) grp.push(score.staves[i + grp.length]);
       parts.push(grp);
       i += grp.length;
     }

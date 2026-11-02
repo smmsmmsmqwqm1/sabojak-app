@@ -1,1 +1,1 @@
-window.APP_VERSION = "1.0 (web)";
+window.APP_VERSION = "1.1 (web)";

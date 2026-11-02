@@ -61,6 +61,8 @@
       if (!choice) return null;
       if (choice === 'over' && lower && !(await UI.confirm(t('예전 판으로 덮어쓸까요?'), t('지금 악보는 기록(최근 5개)에 남아 있어요.'), { ok: t('덮어쓰기'), danger: true }))) return null;
       if (choice === 'copy') score = IM.asCopy(score);
+      // 덮어쓰기 전에 지금 악보를 기록에 남긴다(안내문 '지금 악보는 기록에 남아 있어요'가 사실이 되게 — 최근 3분 편집이 사라질 수 있었음 · 점검원 ⑥ 11-02)
+      if (choice === 'over') { try { await SJ.Storage.snapshotCurrent(score.id); } catch (e) { /* 기록 실패는 덮어쓰기를 막지 않음 */ } }
     }
     await SJ.Storage.saveScore(score, { snapshot: true });
     if (r.status === 'repaired' && !quiet) UI.toast(t('일부를 복구했어요'));

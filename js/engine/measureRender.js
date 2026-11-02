@@ -65,6 +65,8 @@
 
     // ── 마디 쉼표 ──
     md.measureRests.forEach(r => {
+      // 손글씨를 그리는 동안의 화면용 사본: 빈 마디 자리표는 그리지만 않는다(배치 계산은 그대로 — 그리는 중에 오선이 움직이지 않게)
+      if (!r.ev && md.measure['x-noPlaceholder']) return;
       const gx = x0 + (pl.contentStart + pl.contentEnd) / 2 - gw('restWhole') / 2;
       let y = 1;
       if (r.multi) y = r.vi % 2 === 0 ? -1 : 3;
@@ -259,8 +261,10 @@
         while (j + 1 < notes.length && notes[j + 1].flags >= lvl) j++;
         if (j > i) poly(stemXs[i], stemXs[j] + sw, lvl);
         else {
-          // 짧은 빔: 첫 음이거나 앞이 점음표면 오른쪽, 아니면 왼쪽
-          const right = i === 0 || (i < notes.length - 1 && notes[i - 1] && notes[i - 1].ev.dur.dots);
+          // 짧은 빔: 첫 음이면 오른쪽 · 앞이 점음표면 그 점음표 쪽(왼쪽) · 뒤가 점음표면 오른쪽 · 그 밖은 왼쪽
+          // (예전엔 '앞이 점음표면 오른쪽'으로 거꾸로였음 — 6/8 점8분 · 16분 · 8분에서 16분 빔이 반대 · Gould · 점검원 ④ 11-02)
+          const prevDot = !!(notes[i - 1] && notes[i - 1].ev.dur.dots), nextDot = !!(notes[i + 1] && notes[i + 1].ev.dur.dots);
+          const right = i === 0 || (i < notes.length - 1 && nextDot && !prevDot);
           const L = 1.1;
           if (right) poly(stemXs[i], stemXs[i] + L, lvl); else poly(stemXs[i] - L + sw, stemXs[i] + sw, lvl);
         }

@@ -186,7 +186,12 @@
         items.push(DC.arc(k, x1 + 0.2, yA, x2 - 0.2, yB, dir, h, C.slurMidW));
       } else if (sp.type === 'cresc' || sp.type === 'dim') {
         const dynShift = a && score && a.dynW ? a.dynW : 0;
-        deferred.push({ t: 'hairpin', k, x1: x1 + dynShift + (a && hasDynamic(score, sp.startId) ? 2.4 : 0), x2: x2, kind: sp.type, contStart, contEnd });
+        // 끝 음에 셈여림 글자가 있으면 그 글자 바로 앞에서 멈춘다(p < f 에서 끝이 f에 박히던 것 · Gould · 점검원 ④ 11-02)
+        const endDyn = !!(b && hasDynamic(score, sp.endId));
+        const x2h = endDyn ? b.x - 0.6 : x2;
+        let x1h = x1 + dynShift + (a && hasDynamic(score, sp.startId) ? 2.4 : 0);
+        if (endDyn && x2h - x1h < 1.2) x1h = Math.max(x1, x2h - 1.2);   // 너무 짧으면 시작 쪽을 당김(끝 글자는 덮지 않음)
+        deferred.push({ t: 'hairpin', k, x1: x1h, x2: Math.max(x1h + 0.6, x2h), kind: sp.type, contStart, contEnd, endDyn });
       } else if (sp.type === '8va' || sp.type === '8vb') {
         const up = sp.type === '8va';
         let y = up ? -2.6 : 7.0;

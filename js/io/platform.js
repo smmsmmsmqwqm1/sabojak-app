@@ -11,6 +11,11 @@
   P.kind = A && A.fsWrite ? 'android' : IOS ? 'ios' : 'web';
   P.native = P.kind !== 'web';
 
+  /* 아이폰 · 아이패드: 두 손가락으로 '앱 화면 전체'가 확대되는 것 막기 — 웹킷 전용 제스처 이벤트(GestureEvent)를 막는다.
+   * viewport 의 user-scalable=no 는 iOS 10부터 사파리가 따르지 않는다. 악보 확대는 편집 · 악보 모드가 포인터로 따로 한다(영향 없음) */
+  const apple = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (apple) ['gesturestart', 'gesturechange', 'gestureend'].forEach(ev => document.addEventListener(ev, e => e.preventDefault(), { passive: false }));
+
   // ── 아이폰 비동기 호출 ──
   const pending = {};
   let seq = 0;

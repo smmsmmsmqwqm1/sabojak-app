@@ -4,7 +4,8 @@
   const DEFAULTS = {
     lang: 'auto', theme: 'system', haptics: true, uiScale: 1,     // lang: 'auto'(기기 언어 따라) | 'ko' | 'en'
     // 필기
-    pencilOnly: true, recogDelay: 600, scratchErase: true,
+    // pencilOnly: 펜이 닿은 적 있는 기기(penSeen)에서만 '펜 = 쓰기, 손가락 = 고르기'. 펜 없는 폰은 손가락으로 그린다
+    pencilOnly: true, penSeen: false, recogDelay: 600, scratchErase: true,
     // 악보 모드
     perfExitTwoFinger: true, perfExitHold: true, perfAnim: 'none', perfPageNum: true, perfLines: 3, perfView: 'page',
     // 정렬 (새 악보 기본값)
@@ -54,6 +55,8 @@
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
     document.documentElement.style.setProperty('--ui-scale', String(data.uiScale || 1));
     if (SJ.Platform) SJ.Platform.statusBar(dark ? '#1B1A21' : '#FBF8F3', !dark);
+    // 아이폰 홈 화면 웹앱 · 웹: 맨 위 상태 막대 색도 테마를 따르게(밝은색 고정이던 것 · 점검원 ⑤ 11-02)
+    try { document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', dark ? '#1B1A21' : '#FBF8F3')); } catch (e) { /* 무시 */ }
   };
   S.DEFAULTS = DEFAULTS;
   SJ.Settings = S;

@@ -20,6 +20,7 @@
     const mds = score.measures.map((m, mi) => MP.prepare(score, mi, ctxs.ctxs[mi]));
     const lsOpts = {};
     if (opts.align !== undefined) lsOpts.align = opts.align;
+    if (opts.ignoreBreaks) lsOpts.ignoreBreaks = true;      // 화면 맞춤 보기: 인쇄용 줄바꿈 · 쪽바꿈 무시
     const systems = LS.breakSystems(score, mds, ctxs, contentW, lsOpts);
     const state = { incomingTies: [], eventSys: {}, open: {} };
     systems.forEach((sys, si) => SB.build(score, sys, si, mds, ctxs, state, opts));
@@ -36,7 +37,7 @@
     systems.forEach((sys, si) => {
       const hTop = -sys.top * spMm, hBody = sys.bottom * spMm;
       let sy = y + (page.systems.length ? gapMin : (si === 0 && titleBlock ? 2 : 0)) + hTop;
-      const prevBreak = si > 0 && score.measures[systems[si - 1].mis[systems[si - 1].mis.length - 1]].attrs.pageBreak;
+      const prevBreak = si > 0 && !opts.ignoreBreaks && score.measures[systems[si - 1].mis[systems[si - 1].mis.length - 1]].attrs.pageBreak;
       if ((sy + hBody > bottomLimit && page.systems.length) || prevBreak) {
         page = newPage();
         y = mg.top;

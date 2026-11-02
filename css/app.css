@@ -12,8 +12,9 @@
   --r-sm: 12px; --r: 16px; --r-lg: 20px; --r-xl: 26px;
   --tap: 44px;
   --font: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', system-ui, sans-serif;
-  --fs-xs: 11px; --fs-sm: 13px; --fs: 15px; --fs-md: 17px; --fs-lg: 20px; --fs-xl: 26px;
+  /* 글자 크기 = 기준 × 설정의 글자 크기 배율(--ui-scale) — 단추 · 막대 글자까지 함께 커지게 (점검원 ② 11-02) */
   --ui-scale: 1;
+  --fs-xs: calc(11px * var(--ui-scale)); --fs-sm: calc(13px * var(--ui-scale)); --fs: calc(15px * var(--ui-scale)); --fs-md: calc(17px * var(--ui-scale)); --fs-lg: calc(20px * var(--ui-scale)); --fs-xl: calc(26px * var(--ui-scale));
   --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px); --sar: env(safe-area-inset-right, 0px);
   --ease: cubic-bezier(.2, .7, .3, 1);
@@ -30,10 +31,16 @@
   color-scheme: dark;
 }
 
-* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: calc(var(--fs) * var(--ui-scale)); overflow: hidden;
-  -webkit-text-size-adjust: 100%; -webkit-user-select: none; user-select: none; overscroll-behavior: none; touch-action: manipulation; }
-input, textarea, [contenteditable] { -webkit-user-select: text; user-select: text; font-family: var(--font); }
+/* 앱 화면(창 전체)이 웹 페이지처럼 확대 · 끌려 가지 않게 (사용자 11-02 — 악보 확대는 앱이 따로 한다)
+ * ① 두 번 톡 확대: touch-action 은 물려받지 않으므로 모든 요소에 manipulation (따로 정한 none · pan-y 가 이김)
+ * ② 두 손가락 확대: 아이폰은 viewport 의 user-scalable=no 를 따르지 않음 → platform.js 의 gesturestart 막기
+ * ③ 입력 칸 저절로 확대: 아이폰은 16px 보다 작은 입력 칸에 들어가면 확대 → 입력 글자 16px 이상
+ * ④ 끌 때 화면 전체가 고무줄처럼 밀리며 흰 빈칸: 바탕(body)을 화면에 고정, 스크롤은 안쪽 목록만 */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: var(--fs); overflow: hidden;
+  -webkit-text-size-adjust: 100%; -webkit-user-select: none; user-select: none; overscroll-behavior: none; }
+body { position: fixed; inset: 0; width: 100%; -webkit-touch-callout: none; }
+input, textarea, select, [contenteditable] { -webkit-user-select: text; user-select: text; font-family: var(--font); font-size: max(16px, 1em); }
 button { font-family: var(--font); color: inherit; }
 #app { position: fixed; inset: 0; display: flex; flex-direction: column; }
 .view { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--bg); }
@@ -63,7 +70,7 @@ button { font-family: var(--font); color: inherit; }
 .ibtn { min-width: var(--tap); min-height: var(--tap); border: 0; background: transparent; border-radius: var(--r-sm); display: inline-flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 1px; padding: 2px 6px; cursor: pointer; color: var(--ink); transition: transform .12s var(--ease), background .15s; }
 .ibtn:active { transform: scale(.94); background: var(--surface-2); }
-.ibtn .lbl { font-size: 10.5px; font-weight: 600; color: var(--ink-2); line-height: 1.1; white-space: nowrap; }
+.ibtn .lbl { font-size: calc(10.5px * var(--ui-scale)); font-weight: 600; color: var(--ink-2); line-height: 1.1; white-space: nowrap; }
 .ibtn.on { background: var(--accent-weak); color: var(--accent-ink); }
 .ibtn.on .lbl { color: var(--accent-ink); }
 .ibtn[disabled] { opacity: .35; pointer-events: none; }
@@ -82,9 +89,9 @@ button { font-family: var(--font); color: inherit; }
 .lib-head h1 { margin: 0; font-size: var(--fs-xl); font-weight: 800; letter-spacing: -.5px; display: flex; align-items: center; gap: 8px; }
 .lib-tools { padding: 6px calc(var(--sar) + 16px) 8px calc(var(--sal) + 16px); display: flex; gap: 8px; align-items: center; }
 .search { flex: 1; min-width: 0; height: var(--tap); border-radius: var(--r); background: var(--surface); border: 1px solid var(--line); display: flex; align-items: center; gap: 6px; padding: 0 12px; }
-.search input { border: 0; outline: 0; background: transparent; color: var(--ink); font-size: var(--fs); flex: 1; min-width: 0; }
+.search input { border: 0; outline: 0; background: transparent; color: var(--ink); font-size: max(16px, var(--fs)); flex: 1; min-width: 0; }
 .grid { padding: 6px calc(var(--sar) + 16px) calc(var(--sab) + 110px) calc(var(--sal) + 16px); display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px;
-  overflow-y: auto; -webkit-overflow-scrolling: touch; align-content: start; }
+  overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; align-content: start; }
 .card { background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow); overflow: hidden; position: relative; cursor: pointer; transition: transform .12s var(--ease); }
 .card:active { transform: scale(.98); }
 .card .thumb { aspect-ratio: 210 / 230; background: #fff; overflow: hidden; display: flex; align-items: flex-start; justify-content: center; border-bottom: 1px solid var(--line); }
@@ -93,9 +100,9 @@ button { font-family: var(--font); color: inherit; }
 .card .t { font-weight: 700; font-size: var(--fs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card .m { font-size: var(--fs-xs); color: var(--ink-2); margin-top: 3px; }
 .card .play { position: absolute; right: 8px; top: 8px; width: 40px; height: 40px; border-radius: 50%; background: rgba(255, 255, 255, .92); border: 1px solid var(--line);
-  display: flex; align-items: center; justify-content: center; color: var(--accent-ink); box-shadow: var(--shadow); }
+  display: flex; align-items: center; justify-content: center; color: #3E4CA0; box-shadow: var(--shadow); }   /* (흰 원 위라 다크 모드에서도 진한 색 고정 · 점검원 ⑤ 11-02) */
 .card .play svg { width: 18px; height: 18px; }
-.card .warnbadge { position: absolute; left: 8px; top: 8px; padding: 2px 8px; border-radius: 99px; background: var(--apricot-weak); color: var(--apricot-ink); font-size: 11px; font-weight: 700; }
+.card .warnbadge { position: absolute; left: 8px; top: 8px; padding: 2px 8px; border-radius: 99px; background: var(--apricot-weak); color: var(--apricot-ink); font-size: var(--fs-xs); font-weight: 700; }
 .fab { position: absolute; right: calc(var(--sar) + 18px); bottom: calc(var(--sab) + 18px); height: 56px; padding: 0 22px; border-radius: 28px; border: 0;
   background: var(--accent); color: #fff; font-size: var(--fs-md); font-weight: 700; display: flex; align-items: center; gap: 8px; box-shadow: 0 6px 22px color-mix(in srgb, var(--accent) 45%, transparent); z-index: 4; }
 .fab:active { transform: scale(.97); }
@@ -115,7 +122,7 @@ button { font-family: var(--font); color: inherit; }
 .sheet .grip { width: 40px; height: 5px; border-radius: 3px; background: var(--surface-3); margin: 8px auto 2px; flex: none; }
 .sheet .sh-head { display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 20px; flex: none; }
 .sheet .sh-head h3 { margin: 0; font-size: var(--fs-md); flex: 1; }
-.sheet .sh-body { overflow-y: auto; padding: 4px 20px 16px; -webkit-overflow-scrolling: touch; }
+.sheet .sh-body { overflow-y: auto; overscroll-behavior: contain; padding: 4px 20px 16px; -webkit-overflow-scrolling: touch; }
 .sheet .sh-foot { padding: 8px 20px 14px; display: flex; gap: 10px; flex: none; }
 .sheet .sh-foot .btn { flex: 1; }
 .dialog { position: fixed; left: 50%; top: 50%; z-index: 61; width: min(92vw, 380px); transform: translate(-50%, -46%) scale(.98); opacity: 0; background: var(--surface);
@@ -134,7 +141,7 @@ button { font-family: var(--font); color: inherit; }
 .toast:not(:has(.ta)) { padding-right: 16px; }
 
 /* ── 입력 요소 ── */
-.field { height: var(--tap); border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); padding: 0 12px; font-size: var(--fs); outline: none; min-width: 0; }
+.field { height: var(--tap); border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); padding: 0 12px; font-size: max(16px, var(--fs)); outline: none; min-width: 0; }
 .field:focus { border-color: var(--accent); background: var(--surface); }
 textarea.field { height: auto; min-height: 80px; padding: 10px 12px; resize: vertical; }
 .lab { font-size: var(--fs-sm); font-weight: 700; color: var(--ink-2); margin: 14px 0 6px; display: block; }
@@ -162,7 +169,7 @@ textarea.field { height: auto; min-height: 80px; padding: 10px 12px; resize: ver
 .li.danger { color: var(--danger); }
 .li.danger .ic { color: var(--danger); }
 .stepper { display: inline-flex; align-items: center; background: var(--surface-2); border-radius: var(--r-sm); }
-.stepper button { width: 40px; height: 40px; border: 0; background: transparent; font-size: 20px; font-weight: 700; color: var(--ink); }
+.stepper button { width: 40px; height: 40px; border: 0; background: transparent; font-size: var(--fs-lg); font-weight: 700; color: var(--ink); }
 .stepper span { min-width: 44px; text-align: center; font-weight: 700; }
 
 /* ── 편집 화면 ── */
@@ -171,9 +178,14 @@ textarea.field { height: auto; min-height: 80px; padding: 10px 12px; resize: ver
 .page-slot { position: relative; height: 100%; flex: none; display: flex; align-items: center; justify-content: center; }
 .page-paper { position: relative; background: var(--paper); box-shadow: var(--paper-shadow); border-radius: 3px; transform-origin: 0 0; }
 .page-paper > svg.score { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+/* 흘림 보기: 화면이 곧 종이 (그림자 · 모서리 · 쪽 추가 없음) */
+#editor.flow .editor-stage { background: var(--paper); }
+#editor.flow .page-paper { box-shadow: none; border-radius: 0; }
+#editor.flow .pagebar .addpage { display: none; }
 .page-paper > svg.overlay { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
-.sel-measure { fill: rgba(124, 140, 222, .16); stroke: rgba(124, 140, 222, .7); stroke-width: .35; rx: 1; }
-.sel-range { fill: rgba(124, 140, 222, .1); stroke: rgba(124, 140, 222, .5); stroke-width: .3; stroke-dasharray: 1 .8; }
+/* 선 굵기는 화면 px로 (쪽 보기는 mm, 흘림 보기는 px 단위라 — 어느 쪽이든 같은 굵기로 보이게) */
+.sel-measure { fill: rgba(124, 140, 222, .16); stroke: rgba(124, 140, 222, .8); stroke-width: 1.6px; vector-effect: non-scaling-stroke; }
+.sel-range { fill: rgba(124, 140, 222, .1); stroke: rgba(124, 140, 222, .55); stroke-width: 1.4px; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
 .sel-note { fill: rgba(124, 140, 222, .28); }
 .flash { fill: rgba(99, 179, 148, .25); animation: fl 1.1s ease-out forwards; }
 @keyframes fl { 0% { opacity: 1 } 100% { opacity: 0 } }
@@ -182,7 +194,7 @@ textarea.field { height: auto; min-height: 80px; padding: 10px 12px; resize: ver
 svg .pending { opacity: .55; fill: #6576CF; }
 svg .check { fill: #E07B39; }
 .more-opts { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 4px; }
-.more-opts > summary { cursor: pointer; padding: 10px 2px; font-size: 14px; color: var(--ink-2); list-style: none; }
+.more-opts > summary { cursor: pointer; padding: 10px 2px; font-size: calc(14px * var(--ui-scale)); color: var(--ink-2); list-style: none; }
 .more-opts > summary::before { content: '▸ '; }
 .more-opts[open] > summary::before { content: '▾ '; }
 .chip.ghost { background: transparent; border-style: dashed; color: var(--ink-2); }
@@ -196,6 +208,18 @@ svg .check { fill: #E07B39; }
   display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
 .toolbar::-webkit-scrollbar { display: none; }
 .toolbar .ibtn { min-width: 58px; }
+/* 아래 막대(도구 / 고른 마디 막대)는 같은 자리 · 같은 높이 — 바뀔 때 악보 화면 크기가 출렁이지 않게 */
+.toolbar, .ctxbar { box-sizing: border-box; height: calc(62px + var(--sab)); align-items: center; padding-bottom: calc(var(--sab) + 4px); }
+.toolbar .input-main { flex: none; border-radius: 99px; padding: 0 18px; gap: 6px; margin: 0 8px 0 4px; height: 46px; font-weight: 800; white-space: nowrap; }
+.toolbar .input-main svg, .ctxbar .btn.compact svg { width: 20px; height: 20px; }
+.ctxbar .btn.compact { border-radius: 99px; height: 44px; gap: 4px; padding: 0 14px; margin-right: 4px; white-space: nowrap; flex: none; }
+/* 폭 360~380(아이폰 미니 · SE · 갤럭시 360): 아래 막대가 넘쳐 '표현' · ⋯ 이 잘리지 않게 */
+@media (max-width: 380px) {
+  .toolbar .ibtn, .ctxbar .ibtn { min-width: 50px; }
+  .toolbar .input-main { padding: 0 13px; margin: 0 4px 0 2px; }
+  .ctxbar .btn.compact { padding: 0 11px; }
+  .ctxbar .cap { padding: 4px 8px; max-width: 72px; overflow: hidden; text-overflow: ellipsis; }
+}
 .ctxbar { flex: none; background: var(--surface); border-top: 1px solid var(--line); padding: 4px calc(var(--sar) + 6px) 4px calc(var(--sal) + 6px); display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; align-items: center; }
 .ctxbar::-webkit-scrollbar { display: none; }
 .ctxbar .cap { font-size: var(--fs-xs); font-weight: 700; color: var(--accent-ink); background: var(--accent-weak); padding: 4px 10px; border-radius: 99px; white-space: nowrap; margin-right: 4px; }
@@ -210,7 +234,7 @@ svg .check { fill: #E07B39; }
 
 /* 텍스트 상자 편집 */
 .textbox-edit { position: absolute; z-index: 7; min-width: 120px; background: var(--surface); border: 2px solid var(--accent); border-radius: 10px; padding: 6px 8px; box-shadow: var(--shadow-lg); }
-.textbox-edit textarea { border: 0; outline: 0; width: 100%; background: transparent; color: var(--ink); resize: none; font-size: 16px; min-height: 30px; }
+.textbox-edit textarea { border: 0; outline: 0; width: 100%; background: transparent; color: var(--ink); resize: none; font-size: max(16px, var(--fs)); min-height: 30px; }
 
 /* ── 집중 모드 ── */
 .focus { position: fixed; inset: 0; z-index: 30; background: var(--bg); display: flex; flex-direction: column; }
@@ -221,9 +245,13 @@ svg .check { fill: #E07B39; }
 .focus .beat.full { background: var(--mint-weak); color: var(--mint); }
 .btn.compact { padding: 0 10px; gap: 2px; min-width: 44px; }
 .btn.compact svg { width: 20px; height: 20px; }
-.focus .cap { font-size: var(--fs-sm); font-weight: 700; white-space: nowrap; padding: 0 4px; }
+/* (마디 · 보표 이름은 줄어들 수 있게 — 좁은 폰 · 피아노 · 큰 글자에서 ⋯ · 되돌리기가 화면 밖으로 밀리지 않게 · 점검원 ① 11-02) */
+.focus .cap { font-size: var(--fs-sm); font-weight: 700; white-space: nowrap; padding: 0 4px; min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; }
+.focus .fbar > * { flex-shrink: 0; }
+.focus .fbar > .cap { flex-shrink: 1; }
+@media (max-width: 380px) { .focus .fbar button.done { min-width: 0; padding: 0 10px; } .focus .fbar { gap: 2px; } }   /* (button.done = 뒤에 오는 기본 76px 규칙보다 우선 · 점검원 ① 해소 확인) */
 .focus .fbar .beat { min-width: 0; }
-.focus .pv-name { position: absolute; transform: translate(-50%, -120%); background: #2E2C3A; color: #fff; font-weight: 700; font-size: 14px; padding: 4px 10px;
+.focus .pv-name { position: absolute; transform: translate(-50%, -120%); background: #2E2C3A; color: #fff; font-weight: 700; font-size: calc(14px * var(--ui-scale)); padding: 4px 10px;
   border-radius: 99px; pointer-events: none; white-space: nowrap; z-index: 3; }
 .focus .fsub { flex: none; display: flex; align-items: center; gap: 6px; padding: 0 calc(var(--sar) + 8px) 4px calc(var(--sal) + 8px); overflow-x: auto; scrollbar-width: none; }
 .focus .fsub::-webkit-scrollbar { display: none; }
@@ -241,11 +269,41 @@ svg .check { fill: #E07B39; }
 .nbtn:active { transform: scale(.94); background: var(--surface-2); }
 .nbtn.on { background: var(--accent-weak); color: var(--accent-ink); }
 .nbtn svg { width: 26px; height: 26px; }
-.nbtn .lbl { font-size: 10px; font-weight: 600; color: var(--ink-2); }
+.nbtn .lbl { font-size: calc(10px * var(--ui-scale)); font-weight: 600; color: var(--ink-2); }
 .nbtn.on .lbl { color: var(--accent-ink); }
-.nbtn.txt { font-weight: 800; font-size: 17px; }
+.nbtn.txt { font-weight: 800; font-size: var(--fs-md); }
 .nbtn[disabled] { opacity: .3; pointer-events: none; }
 .nsep { width: 1px; height: 30px; background: var(--line); margin: 0 3px; flex: none; }
+/* 손글씨: 오선 위 표(? = 확인 필요 · 점 = 알아들음, 톡 하면 바꾸기) */
+.focus .fbar .done { min-width: 76px; }
+.focus .fsub .seg { flex: none; }
+.focus .fsub .seg button { min-height: 36px; padding: 0 14px; white-space: nowrap; }
+.focus .fsub .beat { flex: 0 1 auto; }
+.focus .hw-row .btn { white-space: nowrap; flex: none; }
+.focus .hw-row .hw-hint { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.hw-badges { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+/* (누름은 통과 — 손가락 누름은 handwriting 그리기 판이 표 근처 44px로 판정 · 펜은 늘 그리기 · 점검원 ① 11-02) */
+.hw-badge { position: absolute; transform: translate(-50%, -50%); pointer-events: none; width: 32px; height: 32px; border-radius: 50%; border: 0;
+  background: transparent; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; color: #fff; padding: 0; }
+.hw-badge::before { content: ''; position: absolute; width: 10px; height: 10px; border-radius: 50%; background: rgba(95, 111, 207, .45); }
+.hw-badge.ask { background: #E0803F; box-shadow: 0 2px 6px rgba(224, 128, 63, .45); }
+.hw-badge.ask::before { display: none; }
+/* 손글씨 줄은 안내 글이든 단추든 늘 같은 높이 — 그리는 동안 그림판(오선)이 위아래로 움직이지 않게 */
+.focus .hw-row { height: 52px; min-height: 52px; max-height: 52px; gap: 6px; padding: 0 4px; box-sizing: border-box; }
+.focus .hw-row .btn { min-height: 44px; height: 44px; }
+.focus .fsub { height: 48px; min-height: 48px; }
+.hw-hint { font-size: var(--fs-sm); color: var(--ink-2); padding: 0 6px; white-space: nowrap; }
+.hw-hint.ok { color: var(--mint); font-weight: 700; }
+.cand-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; margin: 6px 0 4px; }
+.cand { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 88px; padding: 8px 4px; border-radius: 16px;
+  border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); }
+.cand .ci { display: flex; align-items: center; justify-content: center; height: 40px; }
+.cand .ci svg { height: 36px; width: auto; }
+.cand .cl { font-size: var(--fs-sm); font-weight: 600; text-align: center; line-height: 1.25; }
+.cand.on { border-color: var(--accent); background: var(--accent-weak); color: var(--accent-ink); }
+.cand.redraw { color: var(--ink-2); border-style: dashed; }
+.rv-item { padding: 8px 0; border-top: 1px solid var(--line); }
+.rv-item:first-of-type { border-top: 0; }
 .music { font-family: 'Bravura', serif; }
 
 /* ── 악보 모드 ── */
@@ -272,18 +330,19 @@ svg .check { fill: #E07B39; }
 .onb { position: fixed; inset: 0; z-index: 70; background: var(--bg); display: flex; flex-direction: column; padding: calc(var(--sat) + 20px) 24px calc(var(--sab) + 20px); }
 .onb .slide { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 10px; }
 .onb .slide svg.ill { width: 220px; height: 170px; }
-.onb h2 { margin: 6px 0 0; font-size: 24px; }
+.onb h2 { margin: 6px 0 0; font-size: calc(24px * var(--ui-scale)); }
 .onb p { margin: 0; color: var(--ink-2); line-height: 1.6; max-width: 340px; }
 .onb .dots { display: flex; gap: 6px; justify-content: center; margin: 12px 0; }
 .onb .dots i { width: 8px; height: 8px; border-radius: 4px; background: var(--surface-3); }
 .onb .dots i.on { width: 22px; background: var(--accent); }
 
 /* ── 설정 ── */
-.settings { overflow-y: auto; padding: 4px calc(var(--sar) + 16px) calc(var(--sab) + 30px) calc(var(--sal) + 16px); }
+.settings { overflow-y: auto; overscroll-behavior: contain; padding: 4px calc(var(--sar) + 16px) calc(var(--sab) + 30px) calc(var(--sal) + 16px); }
 .settings h4 { margin: 20px 4px 8px; font-size: var(--fs-sm); color: var(--ink-2); }
-.set { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 14px; border-bottom: 1px solid var(--line); }
+/* (조절 단추가 넓으면 아랫줄로 — 왼쪽 글이 실처럼 좁아지지 않게 · 점검원 ⑤ 11-02) */
+.set { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-height: 56px; padding: 8px 14px; border-bottom: 1px solid var(--line); }
 .set:last-child { border-bottom: 0; }
-.set .tx { flex: 1; min-width: 0; }
+.set .tx { flex: 1 1 140px; min-width: 0; }
 .set .tx b { display: block; font-weight: 600; }
 .set .tx span { font-size: var(--fs-xs); color: var(--ink-2); }
 

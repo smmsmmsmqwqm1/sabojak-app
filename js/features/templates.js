@@ -74,6 +74,9 @@
     const tdir = await SJ.Storage.trashTemplate(tp);
     const wasDefault = SJ.Settings.get('defaultTemplate') === 'user:' + tp.id;
     if (wasDefault) SJ.Settings.set('defaultTemplate', null);
+    // 새 악보 창이 기억한 고른 템플릿도 풀기(지운 템플릿이 남아 [만들기]가 오류 나던 것 · 점검원 ⑤ 11-02)
+    const nd = SJ.Settings.get('newDefaults');
+    if (nd && nd.tpl === 'user:' + tp.id) SJ.Settings.set('newDefaults', Object.assign({}, nd, { tpl: 'preset:single' }));
     UI.toast(t('휴지통으로 옮겼어요'), { action: { label: t('되돌리기'), fn: async () => {
       await SJ.Storage.restoreDeleted(tdir);
       if (wasDefault) SJ.Settings.set('defaultTemplate', 'user:' + tp.id);

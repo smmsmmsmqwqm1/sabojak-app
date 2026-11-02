@@ -79,7 +79,8 @@
     // 헤어핀
     deferred.filter(d => d.t === 'hairpin').forEach(d => {
       const y = dynBase[d.k] - 0.75, open = 0.55;
-      const xa = d.x1, xb = Math.max(d.x1 + 1.5, d.x2);
+      // (끝 음에 셈여림이 있으면 그 글자를 덮지 않게 최소 길이로 늘리지 않음 — 짧은 p<f · 점검원 ④ 11-02)
+      const xa = d.x1, xb = d.endDyn ? d.x2 : Math.max(d.x1 + 1.5, d.x2);
       const narrowAtStart = d.kind === 'cresc';
       const yA1 = narrowAtStart && !d.contStart ? y : y - open, yA2 = narrowAtStart && !d.contStart ? y : y + open;
       const yB1 = !narrowAtStart && !d.contEnd ? y : y - open, yB2 = !narrowAtStart && !d.contEnd ? y : y + open;

@@ -71,7 +71,7 @@
         } catch (e) {
           tries++;
           St.lastError = e;
-          if (tries >= 3) { St.saveState = 'error'; emit('saveState'); SJ.UI.toast(SJ.t('저장하지 못했어요. 다시 시도할게요'), { action: { label: SJ.t('다시'), fn: () => St.save() } }); break; }
+          if (tries >= 3) { St.saveState = 'error'; emit('saveState'); SJ.UI.toast(SJ.t('저장하지 못했어요 · 저장 공간을 확인해 주세요'), { action: { label: SJ.t('다시'), fn: () => St.save() } }); break; }
           await new Promise(r => setTimeout(r, 400 * tries));
         }
       }
@@ -81,10 +81,12 @@
     })();
     return saving;
   };
+  // 남은 저장을 마저 한다 — 앞서 실패('error')한 것도 다시 해 본다(점검원 ⑥ 11-02: 실패 뒤 닫으면 고친 것이 말없이 사라졌음). → 저장됐으면 true
   St.flush = async function () {
     if (debounced.pending()) { debounced.cancel(); await St.save(); }
     else if (saving) await saving;
-    else if (St.saveState === 'dirty') await St.save();
+    if (St.saveState === 'dirty' || St.saveState === 'error') await St.save();
+    return St.saveState !== 'error';
   };
 
   SJ.Store = St;

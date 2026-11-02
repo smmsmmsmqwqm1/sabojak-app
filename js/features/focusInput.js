@@ -26,9 +26,14 @@
     stageEl.addEventListener('pointerdown', e => {
       const st = F().st;
       if (!st || (st.inputMode === 'pen' && SJ.Handwriting && SJ.Handwriting.wants(e))) return;
+      // 펜으로 쓰는 중의 손바닥 · 큰 접촉은 고르기 · 끌기로도 쓰지 않는다(넣어 둔 음표가 끌려 옮겨지지 않게)
+      if (st.inputMode === 'pen' && ((e.width || 0) > 40 || (e.height || 0) > 40 || (SJ.Handwriting && SJ.Handwriting.penActive()))) return;
       if (g) return;                                  // 두 번째 손가락 무시
       const p = local(e);
-      g = { id: e.pointerId, x0: p.x, y0: p.y, t: Date.now(), res: FI.resolve(p.x, p.y) };
+      let res = FI.resolve(p.x, p.y);
+      // 손글씨일 때 손가락(펜 기기)은 고르기 · 끌어 고치기만 — 톡으로 음이 박히거나 마디가 넘어가지 않게
+      if (st.inputMode === 'pen' && res && res.type !== 'select') res = null;
+      g = { id: e.pointerId, x0: p.x, y0: p.y, t: Date.now(), res, pen: st.inputMode === 'pen' };
       if (g.res && (g.res.type === 'insert' || g.res.type === 'chord')) FI.preview(g.res, p.y);
       try { stageEl.setPointerCapture(e.pointerId); } catch (er) { /* 무시 */ }
     });
@@ -55,7 +60,7 @@
       const dx = p.x - d.x0, dy = p.y - d.y0;
       if (d.dragX) { FI.endShift(d.res); return; }
       if (d.dragHead) { FI.moveHead(d.res, p.y); return; }
-      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2) { F().go(dx < 0 ? 1 : -1); return; }   // 옆으로 밀기 = 마디 이동
+      if (!d.pen && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2) { F().go(dx < 0 ? 1 : -1); return; }   // 옆으로 밀기 = 마디 이동 (탭 입력일 때만)
       if (d.res.type === 'insert' || d.res.type === 'chord') { FI.commitAt(d.res, p.y); return; }
       if (Math.hypot(dx, dy) > 14) return;
       FI.commitAt(d.res, p.y);
@@ -117,7 +122,9 @@
       else { st.sel = { ei: res.ei, hi: res.hi }; st.cursor = res.ei + 1; }
       // 필기 인식이 확신하지 못했던 음표(주황)는 톡 해서 보면 '확인함'
       const sv = ME.voice(st.measure, st.staffId, st.vi).events[res.ei];
-      if (sv && sv['x-check']) { F().change(m => { delete ME.voice(m, st.staffId, st.vi).events[res.ei]['x-check']; }, { noRender: true }); UI.toast(t('확인했어요 · 틀렸으면 아래에서 고치세요')); }
+      // (넣을 때 남긴 후보가 있으면 같은 후보 그림으로 고치기 — 없던 예전 악보는 '확인함'만)
+      if (sv && sv['x-check'] && sv['x-cands'] && SJ.Handwriting && SJ.Handwriting.fixEvent(sv.id)) { F().render(); FI.drawTools(); return; }
+      if (sv && sv['x-check']) { F().change(m => { const e0 = ME.voice(m, st.staffId, st.vi).events[res.ei]; delete e0['x-check']; delete e0['x-cands']; }, { noRender: true }); UI.toast(t('확인했어요 · 틀렸으면 아래에서 고치세요')); }
       F().render(); FI.drawTools();
       return;
     }
@@ -143,7 +150,7 @@
       const v = ME.voice(m, st.staffId, st.vi);
       const ev = v.events[res.ei];
       if (!ev || ev.kind !== 'note') return;
-      delete ev['x-check'];
+      delete ev['x-check']; delete ev['x-cands'];
       const keep = ev.heads[res.hi] || ev.heads[0];
       const moved = Object.assign({}, keep, { step: nh.step, octave: nh.octave, alter: nh.alter });
       delete moved.accidental;
@@ -283,6 +290,7 @@
       });
       UI.toast(t('[확인]하면 다음 마디 앞에 붙어요'));
     } else if (choice === 'undo' || choice === null) F().undo();
+    return choice;   // (손글씨는 '취소'면 그린 잉크를 되살리고 화면에 머문다 — handwriting commit)
   };
 
   FI.fillRests = function () {
@@ -447,6 +455,25 @@
         [h('span', { html }), opts.noLabel ? null : h('span', { class: 'lbl', text: label })]);
     };
     const sep = () => h('span', { class: 'nsep' });
+    // 손글씨: 위 줄 = 그린 것 상태(? 확인 · 한 획 지우기), 아래 줄 = 그리기 어려운 것을 톡으로(임시표 · 점 · 쉼표 · 붙임줄 — 고른 음표나 바로 앞 음표에)
+    if (st.inputMode === 'pen' && SJ.Handwriting) {
+      el.appendChild(SJ.Handwriting.barRow());
+      const r = h('div', { class: 'nrow' });
+      // 그리는 중이면 방금 그린(오른쪽 끝) 음표에, 아니면 고른 음표 · 바로 앞 음표에
+      const HW = SJ.Handwriting;
+      const onInk = (kind, val) => HW.hasInk() && HW.modifyLast(kind, val);
+      [[1, 'accidentalSharp', '올림'], [-1, 'accidentalFlat', '내림'], [0, 'accidentalNatural', '제자리']].forEach(a => r.appendChild(nb(UI.glyphSvg(a[1], 22), t(a[2]), () => { if (onInk('acc', a[0])) return; if (!target(true)) { UI.toast(t('먼저 음표를 넣거나 골라 주세요')); return; } if (!st.sel) { const tg = target(true); st.sel = { ei: tg.ei, hi: 0 }; } FI.accidental(a[0]); })));
+      r.appendChild(sep());
+      const tg0 = target(true);
+      const dt = tg0 ? tg0.ev.dur.type : st.dur.type;
+      r.appendChild(nb(UI.noteIcon(dt, { dots: 1, px: 24 }), t('점'), () => { if (onInk('dot')) return; const tg = target(true); if (!tg) { UI.toast(t('먼저 음표를 넣거나 골라 주세요')); return; } F().change(m => { const ev = ME.voice(m, st.staffId, st.vi).events[tg.ei]; ev.dur.dots = (ev.dur.dots || 0) >= 1 ? 0 : 1; }); }));
+      r.appendChild(nb(SJ.icon('tie'), t('붙임줄'), () => { if (onInk('tie')) return; FI.tie(); }));
+      r.appendChild(sep());
+      // (넣은 음표를 지우는 단추 — 잉크 지우기는 위 줄 [한 획 지우기 · 모두 지우기] · 이름을 하는 일과 같게 · 점검원 ① 11-02)
+      r.appendChild(nb(SJ.icon('trash'), t('넣은 음 지우기'), () => FI.removeSel(), { disabled: !target(true) }));
+      el.appendChild(r);
+      return;
+    }
     // 1줄: 음길이 · 점 · 쉼표 · 붙임줄 · 잇단음 · 꾸밈음
     const r1 = h('div', { class: 'nrow' });
     const curType = sel ? sel.ev.dur.type : st.dur.type;
@@ -479,12 +506,12 @@
       if (sel.ev.xShift) r2.appendChild(nb(SJ.icon('restore'), t('자동 위치'), () => FI.resetShift()));
       r2.appendChild(nb(SJ.icon('trash'), t('지우기'), () => FI.removeSel()));
     } else {
-      'CDEFGAB'.split('').forEach(s => r2.appendChild(nb('<b style="font-size:17px">' + s + '</b>', t({ C: '도', D: '레', E: '미', F: '파', G: '솔', A: '라', B: '시' }[s]), () => FI.noteName(s))));
+      'CDEFGAB'.split('').forEach(s => r2.appendChild(nb('<b style="font-size:var(--fs-md)">' + s + '</b>', t({ C: '도', D: '레', E: '미', F: '파', G: '솔', A: '라', B: '시' }[s]), () => FI.noteName(s))));
       r2.appendChild(nb(SJ.icon('erase'), t('앞 음 지우기'), () => FI.removeSel(), { disabled: st.cursor === 0 }));
     }
     r2.appendChild(sep());
-    r2.appendChild(nb('<b style="font-size:15px">8ᵛᵃ↑</b>', t('옥타브 위'), () => FI.octave(1)));
-    r2.appendChild(nb('<b style="font-size:15px">8ᵛᵇ↓</b>', t('옥타브 아래'), () => FI.octave(-1)));
+    r2.appendChild(nb('<b style="font-size:var(--fs)">8ᵛᵃ↑</b>', t('옥타브 위'), () => FI.octave(1)));
+    r2.appendChild(nb('<b style="font-size:var(--fs)">8ᵛᵇ↓</b>', t('옥타브 아래'), () => FI.octave(-1)));
     r2.appendChild(nb(SJ.icon('expr'), t('표현'), () => FI.exprMenu()));
     el.appendChild(r2);
   };

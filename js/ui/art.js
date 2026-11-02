@@ -12,16 +12,19 @@
       '<circle cx="18.4" cy="30.6" r="1.3" fill="#7C8CDE"/><circle cx="22.8" cy="29.4" r="1.3" fill="#7C8CDE"/>' +
       '<path d="M19 33.6q1.9 1.3 3.8-.4" stroke="#EE9E73" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>';
   };
+  /* 빈 목록 그림 — 실제 악보 비율 (앱 아이콘과 같은 원칙 · 사용자 11-02 "음표 위치가 진짜 음표가 있어야 할 위치가 아니라서 … 부끄럽다"):
+   * 줄 사이 한 칸 S = 24 · 머리(기울인 타원 높이 ≈ 0.97칸)는 두 줄(76 · 100) 사이 칸에 정확히 · 기둥은 머리 오른쪽에서 3.5칸 위로 */
   A.empty = function () {
+    const S = 24, cx = 72, cy = 88, sx = cx + 0.63 * S - 2.5;
     return '<svg class="ill" viewBox="0 0 150 120" aria-hidden="true">' +
-      '<ellipse cx="75" cy="106" rx="48" ry="7" fill="var(--surface-3)"/>' +
-      '<g stroke="var(--line)" stroke-width="2">' + [36, 46, 56, 66, 76].map(y => '<path d="M14 ' + y + 'h122"/>').join('') + '</g>' +
-      '<path d="M86 22v52" stroke="var(--accent)" stroke-width="5" stroke-linecap="round"/>' +
-      '<path d="M86 22c9 2.5 15 8 16 17" stroke="var(--accent)" stroke-width="5" stroke-linecap="round" fill="none"/>' +
-      '<ellipse cx="72" cy="78" rx="17" ry="13" transform="rotate(-18 72 78)" fill="var(--accent)"/>' +
-      '<circle cx="66.5" cy="77" r="2.4" fill="#fff"/><circle cx="76" cy="74" r="2.4" fill="#fff"/>' +
-      '<path d="M67 83q4.5 3 8.6-.8" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/>' +
-      '<circle cx="42" cy="26" r="4" fill="var(--apricot)" opacity=".7"/><circle cx="118" cy="88" r="3" fill="var(--mint)" opacity=".7"/></svg>';
+      '<ellipse cx="75" cy="113" rx="44" ry="5" fill="var(--surface-3)"/>' +
+      '<g stroke="var(--line)" stroke-width="2">' + [cy - S / 2, cy + S / 2].map(y => '<path d="M14 ' + y + 'h122"/>').join('') + '</g>' +
+      '<path d="M' + sx + ' ' + (cy - 1) + 'V' + (cy - 3.5 * S) + '" stroke="var(--accent)" stroke-width="5" stroke-linecap="butt"/>' +
+      '<path d="M' + sx + ' ' + (cy - 3.5 * S) + 'c9 2.5 15 8 16 17" stroke="var(--accent)" stroke-width="5" stroke-linecap="round" fill="none"/>' +
+      '<ellipse cx="' + cx + '" cy="' + cy + '" rx="' + (0.66 * S) + '" ry="' + (0.46 * S) + '" transform="rotate(-18 ' + cx + ' ' + cy + ')" fill="var(--accent)"/>' +
+      '<circle cx="' + (cx - 5.5) + '" cy="' + (cy - 1) + '" r="2.2" fill="#fff"/><circle cx="' + (cx + 4) + '" cy="' + (cy - 4) + '" r="2.2" fill="#fff"/>' +
+      '<path d="M' + (cx - 5) + ' ' + (cy + 4) + 'q4.5 3 8.6-.8" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/>' +
+      '<circle cx="36" cy="30" r="4" fill="var(--apricot)" opacity=".7"/><circle cx="122" cy="62" r="3" fill="var(--mint)" opacity=".7"/></svg>';
   };
   // 첫 실행 안내 그림 3장
   A.onb = function (i) {

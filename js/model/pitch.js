@@ -83,7 +83,10 @@
     return P.keyAlter(step, this.fifths);
   };
   // tiedFrom: 앞 음에서 붙임줄로 이어진 음이면 표시하지 않음
-  P.AccidentalState.prototype.visit = function (head, tiedFrom) {
+  // crossBar: 앞 마디에서 붙임줄로 넘어온 음 — 표시하지 않고 이 마디의 상태에도 남기지 않는다
+  //   (그 뒤 같은 음에는 임시표를 다시 붙이는 것이 맞는 표기 · Gould · 점검원 ④ 11-02)
+  P.AccidentalState.prototype.visit = function (head, tiedFrom, crossBar) {
+    if (crossBar && head.accidental !== 'show') return null;
     const alter = head.alter || 0;
     const cur = this.current(head.step, head.octave);
     let show = alter !== cur;

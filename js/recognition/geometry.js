@@ -182,6 +182,50 @@
     return parts;
   };
 
+  /* 꺾인 곳에서 획을 조각(선분)으로 나눈다 — 쉼표처럼 한 획에 꺾임이 여러 번 있는 기호를 부품으로 보기 위해.
+   * 0.15sp 간격으로 다시 뽑고, 앞뒤 3칸 방향이 55° 넘게 바뀌는 곳(그중 가장 많이 꺾인 점)에서 자른다.
+   * 반환: [{pts, a:{x,y}, b:{x,y}, len, straight, ang}] — ang = 세로에서 기운 정도(0 = 세로, 90° = 가로), lean = 위 끝이 오른쪽이면 +1 */
+  Gm.segments = function (stroke, sp) {
+    const src = stroke.pts, step = 0.15 * sp;
+    const q = [{ x: src[0].x, y: src[0].y }];
+    let acc = 0;
+    for (let i = 1; i < src.length; i++) {
+      const a = src[i - 1], b = src[i], d = Math.hypot(b.x - a.x, b.y - a.y);
+      if (!d) continue;
+      let pos = step - acc;
+      while (pos <= d) { const t = pos / d; q.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }); pos += step; }
+      acc = (acc + d) % step;
+    }
+    q.push({ x: src[src.length - 1].x, y: src[src.length - 1].y });
+    const n = q.length, W = 3, cuts = [0];
+    if (n > 2 * W + 2) {
+      const turn = new Float64Array(n);
+      for (let i = W; i < n - W; i++) {
+        const a1 = Math.atan2(q[i].y - q[i - W].y, q[i].x - q[i - W].x), a2 = Math.atan2(q[i + W].y - q[i].y, q[i + W].x - q[i].x);
+        let d = a2 - a1; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+        turn[i] = Math.abs(d);
+      }
+      for (let i = W; i < n - W; i++) {
+        if (turn[i] < 0.96) continue;
+        let best = i;
+        while (i + 1 < n - W && turn[i + 1] >= 0.96) { i++; if (turn[i] > turn[best]) best = i; }
+        if (best - cuts[cuts.length - 1] >= 2) cuts.push(best);
+      }
+    }
+    if (n - 1 - cuts[cuts.length - 1] >= 2) cuts.push(n - 1); else cuts[cuts.length - 1] = n - 1;
+    const out = [];
+    for (let k = 1; k < cuts.length; k++) {
+      const pts = q.slice(cuts[k - 1], cuts[k] + 1);
+      if (pts.length < 2) continue;
+      const a = pts[0], b = pts[pts.length - 1];
+      const len = Gm.length(pts) / sp, chord = Math.hypot(b.x - a.x, b.y - a.y) / sp;
+      const top = a.y <= b.y ? a : b, bot = a.y <= b.y ? b : a;
+      out.push({ pts, a, b, len, straight: len > 0 ? Math.min(1, chord / len) : 1,
+        ang: Math.atan2(Math.abs(b.x - a.x), Math.abs(b.y - a.y)) * 180 / Math.PI, lean: top.x > bot.x ? 1 : -1, top, bot });
+    }
+    return out;
+  };
+
   // $P 용: n개로 다시 뽑기 (여러 획을 이어서)
   Gm.resample = function (strokes, n) {
     const pts = [];
