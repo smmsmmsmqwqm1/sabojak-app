@@ -67,7 +67,7 @@
     ]));
     // 데이터
     body.append(h('h4', { text: t('데이터') }), h('div', { class: 'list' }, [
-      link(t('전체 백업 내보내기'), t('모든 악보를 zip 하나로'), () => SJ.ExportSheet.backupAll(), 'folder'),
+      link(t('전체 백업 내보내기'), SJ.ExportSheet.backupSub(), () => SJ.ExportSheet.backupAll(), 'folder'),
       link(t('백업에서 되살리기'), t('백업 zip · .sabojak 파일 고르기'), () => SJ.Library.importFlow(), 'restore'),
       link(t('휴지통'), t('지운 악보·템플릿 7일 보관'), () => SJ.Trash.open(), 'trash'),
       link(t('템플릿 관리'), t('새 악보 화면에서 길게 누르면 이름 바꾸기·지우기'), () => SJ.NewScore.open(), 'template'),

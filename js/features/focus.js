@@ -213,13 +213,14 @@
     Object.assign(st, { measure: e.measure, carry: e.carry, sel: e.sel, cursor: e.cursor });
     saveDraft(); F.render(); SJ.FocusInput.drawTools();
   };
+  let lastDraftWrite = Promise.resolve();
   const saveDraft = U.debounce(() => {
     const st = F.st; if (!st || !Store.score) return;
     const ink = SJ.Handwriting && SJ.Handwriting.hasInk() ? SJ.Handwriting.snapshot() : null;
-    SJ.Storage.saveDraft(Store.score.id, { scoreId: Store.score.id, measureId: st.measure.id, mi: st.mi, staffId: st.staffId, vi: st.vi, measure: st.measure, carry: st.carry, ink, savedAt: U.isoNow() }).catch(() => {});
+    lastDraftWrite = SJ.Storage.saveDraft(Store.score.id, { scoreId: Store.score.id, measureId: st.measure.id, mi: st.mi, staffId: st.staffId, vi: st.vi, measure: st.measure, carry: st.carry, ink, savedAt: U.isoNow() }).catch(() => {});
   }, 150);
-  // 앱이 뒤로 갈 때: 바꾼 것이 있거나 그리던 잉크가 있으면 지금 바로 임시 저장(잉크까지)
-  F.saveDraftNow = function () { const st = F.st; if (st && (st.dirty || (SJ.Handwriting && SJ.Handwriting.hasInk()))) saveDraft(); saveDraft.flush(); };
+  // 앱이 뒤로 갈 때 · 백업 직전: 바꾼 것이 있거나 그리던 잉크가 있으면 지금 바로 임시 저장(잉크까지) — 쓰기가 끝날 때까지 기다릴 수 있게 약속을 돌려줌
+  F.saveDraftNow = function () { const st = F.st; if (st && (st.dirty || (SJ.Handwriting && SJ.Handwriting.hasInk()))) saveDraft(); saveDraft.flush(); return lastDraftWrite; };
 
   // ── 확인 · 취소 · 이동 ──
   F.commit = function () {

@@ -15,7 +15,7 @@
       UI.ibtn('import', t('불러오기'), () => Lib.importFlow()),
       UI.ibtn('more', t('더보기'), () => UI.menu(t('더보기'), [
         { icon: 'trash', label: t('휴지통'), sub: t('지운 악보·템플릿 (7일 보관)'), onClick: () => SJ.Trash.open() },
-        { icon: 'folder', label: t('전체 백업 내보내기'), sub: t('모든 악보를 파일 하나로'), onClick: () => SJ.ExportSheet.backupAll() },
+        { icon: 'folder', label: t('전체 백업 내보내기'), sub: SJ.ExportSheet.backupSub(), onClick: () => SJ.ExportSheet.backupAll() },
         { icon: 'restore', label: t('백업에서 되살리기'), sub: t('백업 zip · .sabojak 파일 고르기'), onClick: () => Lib.importFlow() },
         { icon: 'help', label: t('사용법'), onClick: () => SJ.Help.open() },
         { icon: 'settings', label: t('설정'), onClick: () => SJ.App.openSettings() }
@@ -142,7 +142,7 @@
     if (!files || !files.length) return;
     const ids = await SJ.Importer.importFiles(files);
     items = await St.list(); Lib.draw();
-    if (ids.length === 1) SJ.App.openEditor(ids[0]);
+    if (ids.length === 1 && !SJ.Importer.lastFull) SJ.App.openEditor(ids[0]);   // 전체 되살리기는 목록에 머문다
   };
 
   Lib.refresh = async function () { items = await St.list(); Lib.draw(); };

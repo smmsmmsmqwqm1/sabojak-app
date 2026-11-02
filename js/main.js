@@ -19,7 +19,11 @@
     SJ.Help.onboarding(false);
     // 하던 악보 이어 쓰기: 편집하다 앱을 닫았으면 그 악보로 바로(직접 목록으로 나왔으면 목록에서 시작 · 점검원 ⑤ 11-02)
     const last = SJ.Settings.get('lastScore');
-    if (last && SJ.Settings.get('onboarded')) { try { await App.openEditor(last); } catch (e) { SJ.Settings.set('lastScore', null); } }
+    // 그 악보가 이제 없으면(지웠거나 다른 기기의 설정을 되살림) '손상' 안내 없이 목록에서 시작
+    let lastOk = false;
+    try { lastOk = !!last && (await SJ.Storage.list()).some(x => x.id === last); } catch (e) { /* 목록을 못 읽으면 목록에서 */ }
+    if (last && !lastOk) SJ.Settings.set('lastScore', null);
+    if (lastOk && SJ.Settings.get('onboarded')) { try { await App.openEditor(last); } catch (e) { SJ.Settings.set('lastScore', null); } }
 
     // 다른 앱에서 .sabojak 파일로 열렸을 때
     SJ.Platform.onOpenFile = f => App.openFiles([f]);
@@ -91,6 +95,9 @@
     SJ.Library.mount(app);
     if (App.view === 'library') SJ.Library.show(); else SJ.Library.hide();
     if (SJ.Editor.isOpen()) { SJ.EditorTools.drawToolbar(); SJ.Editor.updateTop(); }
+    // 설정 화면이 열려 있으면 그것도 새 언어로(백업 되살리기를 설정에서 시작한 경우)
+    const sv = document.getElementById('settings');
+    if (sv && !sv.classList.contains('hidden') && SJ.SettingsView) SJ.SettingsView.show();
   };
 
   SJ.App = App;

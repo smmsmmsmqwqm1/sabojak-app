@@ -50,6 +50,8 @@
     if (dbp) return dbp;
     dbp = new Promise(resolve => {
       try {
+        // 브라우저가 공간이 모자랄 때 이 앱의 저장 내용을 지우지 않게 '계속 보관'을 요청(허락 여부는 브라우저가 정함)
+        try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) { /* 무시 */ }
         const rq = indexedDB.open('sabojak', 1);
         rq.onupgradeneeded = () => rq.result.createObjectStore('fs');
         rq.onsuccess = () => resolve(rq.result);
@@ -118,7 +120,7 @@
       if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: title || name }); return true; }
     } catch (e) { if (e && e.name === 'AbortError') return false; }
     P.download(name, blob);
-    return true;
+    return 'unsure';
   };
   // 기기에 저장 (안드로이드: 저장 위치 고르기 · 아이폰: 공유 시트의 '파일에 저장')
   P.saveFile = async function (name, mime, data) {
@@ -126,8 +128,16 @@
     const payload = isBin ? U.bytesToB64(data) : data;
     if (P.kind === 'android') { const r = await androidAsync('saveFile', [name, mime, payload, isBin]); return r === 'ok'; }
     if (P.kind === 'ios') { const r = await ios('saveFile', [name, mime, payload, isBin]); return r === 'ok'; }
-    P.download(name, new Blob([isBin ? data : U.utf8(data)], { type: mime }));
-    return true;
+    const blob = new Blob([isBin ? data : U.utf8(data)], { type: mime });
+    // 아이폰 · 아이패드 홈 화면 웹앱: 내려받기 링크는 미리보기에 갇히거나 저장 위치를 고를 수 없어서, 공유 창('파일에 저장')으로
+    if (apple) {
+      try {
+        const file = new File([blob], name, { type: mime });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return true; }
+      } catch (e) { if (e && e.name === 'AbortError') return false; }
+    }
+    P.download(name, blob);
+    return 'unsure';                 // 내려받기는 시작만 알 수 있다(사용자가 저장 창에서 취소했는지 모름)
   };
   P.download = function (name, blob) {
     const a = document.createElement('a');

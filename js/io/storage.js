@@ -153,7 +153,9 @@
       const m = /^trash\/(\d+)_(?:(score|template)_)?(.+)\/$/.exec(d);
       const info = j || { kind: (m && m[2]) || 'score', id: m ? m[3] : '', title: '', deletedAt: m ? new Date(Number(m[1])).toISOString() : null };
       info.dir = d;
-      const age = (Date.now() - new Date(info.deletedAt || 0).getTime()) / 86400000;
+      // 백업에서 되살린 휴지통은 되살린 날(keepFrom)부터 센다
+      const from = Math.max(new Date(info.deletedAt || 0).getTime() || 0, info.keepFrom ? new Date(info.keepFrom).getTime() || 0 : 0);
+      const age = (Date.now() - from) / 86400000;
       info.daysLeft = Math.max(0, Math.ceil(St.TRASH_DAYS - age));
       out.push(info);
     }
@@ -245,6 +247,27 @@
     }
     return files;
   };
+
+  /* ── 전체 백업 (앱을 지웠다 깔거나 다른 기기로 옮길 때) ──
+   * 앱 저장 공간의 사용자 파일을 '하나도 빼지 않고' 그대로: 악보 폴더 전부(악보 · 목록 정보 · 이전 판 기록 5개 · 쓰다 만 입력 · 미리보기 그림) ·
+   * 템플릿 · 휴지통(지운 날짜 그대로) · 설정 · 손글씨 기록 · 따로 보관한 손상 파일. index.json 은 목록 캐시라 되살린 뒤 다시 만든다.
+   * 새 저장 파일이 생기면 여기(BACKUP_TOP · BACKUP_DIRS)에 더해야 한다 — tests 의 백업 시험이 저장 경로를 훑어 빠진 곳을 잡는다 */
+  St.BACKUP_TOP = ['settings.json', 'handwriting.json'];
+  St.BACKUP_DIRS = ['scores', 'templates', 'trash', 'quarantine'];
+  St.backupFiles = async function () {
+    const out = [];
+    for (const p of St.BACKUP_TOP) { const t = await PF.read(p); if (t !== null && t !== undefined) out.push({ path: p, text: t }); }
+    for (const d of St.BACKUP_DIRS) {
+      const files = (await PF.list(d)).sort();
+      for (const p of files) { const t = await PF.read(p); if (t !== null && t !== undefined) out.push({ path: p, text: t }); }
+    }
+    return out;
+  };
+  St.exists = async function (path) { const t = await PF.read(path); return t !== null && t !== undefined; };
+  St.readText = path => PF.read(path);
+  St.writeText = (path, text) => PF.write(path, text);
+  St.resetIndex = () => { index = null; };
+  St.dropIndexFile = () => PF.remove('index.json');
 
   SJ.Storage = St;
 })(window.SJ = window.SJ || {});

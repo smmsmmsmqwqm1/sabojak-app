@@ -51,7 +51,7 @@
       ed.select({ type: 'note', eventId: cur, mi: f.mi, staffId: f.staffId, vi: f.vi });
       ed.el().ctxbar.classList.add('hidden');
       const pos = ed.L.eventPos[cur];
-      if (pos && pos.page !== ed.page) ed.goPage(pos.page, { instant: true });
+      if (pos) ed.reveal(pos);                     // 쪽 보기는 그 쪽으로 · 흘림 보기는 그 음이 보이게 스크롤
       info.textContent = t('{n}번 마디', { n: f.mi + 1 }) + ' · ' + f.ev.heads.map(SJ.Pitch.name).join(' ');
       const l = (f.ev.lyrics || []).find(x => x.verse === verse);
       inp.value = l ? l.text : '';

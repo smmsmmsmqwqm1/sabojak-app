@@ -91,11 +91,56 @@
     const text = SJ.Format.serialize(score, { revision: it ? it.revision : 1 });
     return { name: SJ.Format.fileName(score, compat), mime: compat ? 'application/json' : SJ.APP.mime, data: text };
   };
+  /* 전체 백업 zip: sabojak-backup.json(목록 · 크기 · 검사값) + data/(저장 공간 그대로 — Storage.backupFiles) +
+   * 악보/*.sabojak(예전 판 앱의 [백업에서 되살리기]로도 악보는 열리게). 만든 뒤 zip 을 다시 풀어 한 글자도 다르지 않은지 확인한다 */
+  E.backupCounts = function (paths) {
+    const c = { scores: 0, history: 0, drafts: 0, templates: 0, trash: 0, settings: false, handwriting: false };
+    const trashDirs = new Set();
+    paths.forEach(p => {
+      if (/^scores\/[^/]+\/score\.json$/.test(p)) c.scores++;
+      else if (/^scores\/[^/]+\/history\//.test(p)) c.history++;
+      else if (/^scores\/[^/]+\/draft\.json$/.test(p)) c.drafts++;
+      else if (/^templates\//.test(p)) c.templates++;
+      else if (/^trash\/[^/]+\//.test(p)) trashDirs.add(p.split('/')[1]);
+      else if (p === 'settings.json') c.settings = true;
+      else if (p === 'handwriting.json') c.handwriting = true;
+    });
+    c.trash = trashDirs.size;
+    return c;
+  };
   E.backup = async function () {
-    const files = await SJ.Storage.exportAll();
+    const files = await SJ.Storage.backupFiles();
+    const Z = SJ.Zip;
+    const entries = [], list = [];
+    files.forEach(f => {
+      const data = U.utf8(f.text);
+      entries.push({ name: 'data/' + f.path, data });
+      list.push({ p: f.path, n: data.length, crc: Z.crc32(data) });
+    });
+    // 악보마다 .sabojak 한 장씩(사람이 열어 볼 수 있게 · 예전 판 호환)
+    const used = new Set();
+    files.forEach(f => {
+      if (!/^scores\/[^/]+\/score\.json$/.test(f.path)) return;
+      let title = '';
+      try { const r = SJ.Format.parse(f.text); title = (r && r.score && r.score.meta.title) || ''; } catch (e) { /* 이름만 못 얻음 */ }
+      const base = U.safeFileName(title || SJ.t('악보'), '');
+      let n = base, k = 2;
+      while (used.has(n)) n = base + ' (' + (k++) + ')';
+      used.add(n);
+      entries.push({ name: '악보/' + n + '.sabojak', data: U.utf8(f.text) });
+    });
+    const counts = E.backupCounts(files.map(f => f.path));
+    const manifest = { format: 'sabojak-backup', v: 2, app: window.APP_VERSION || '', createdAt: U.isoNow(), platform: SJ.Platform.kind, counts, files: list };
+    entries.unshift({ name: 'sabojak-backup.json', data: U.utf8(JSON.stringify(manifest)) });
+    const zip = Z.zip(entries);
+    // 확인: 다시 풀어서 모든 파일의 크기 · 검사값이 같은지
+    const back = Z.unzip(zip), byName = {};
+    back.forEach(e => { byName[e.name] = e.data; });
+    const bad = list.filter(x => { const d = byName['data/' + x.p]; return !d || d.length !== x.n || Z.crc32(d) !== x.crc; });
+    if (bad.length || back.length !== entries.length) throw new Error(SJ.t('백업 파일을 확인하다 문제가 생겼어요. 다시 해 주세요.'));
     const d = new Date();
-    const stamp = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
-    return { name: (SJ.getLang() === 'en' ? SJ.APP.nameEn + '_backup_' : SJ.APP.name + '_백업_') + stamp + '.zip', mime: 'application/zip', data: SJ.Zip.zip(files), count: files.length };
+    const stamp = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + '_' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0');
+    return { name: (SJ.getLang() === 'en' ? SJ.APP.nameEn + '_backup_' : SJ.APP.name + '_백업_') + stamp + '.zip', mime: 'application/zip', data: zip, count: counts.scores, counts, files: list.length };
   };
 
   SJ.Exporter = E;

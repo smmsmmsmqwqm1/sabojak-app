@@ -16,7 +16,9 @@
     onboarded: false, perfGuideSeen: false, focusHintSeen: false,
     // 소리 미리듣기(§15-1: 배제 — 화면에 노출하지 않음)
     soundPreview: false,
-    defaultPaper: 'A4', defaultOrientation: 'portrait'
+    defaultPaper: 'A4', defaultOrientation: 'portrait',
+    lastBackupAt: null,
+    flowZoom: 1                    // 편집 흘림 보기의 오선 크기(두 손가락으로 바꿈)
   };
   let data = Object.assign({}, DEFAULTS);
   const listeners = [];

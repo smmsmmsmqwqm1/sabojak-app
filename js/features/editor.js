@@ -43,7 +43,7 @@
       if (w === lastW && H === lastH) return;
       lastW = w; lastH = H;
       // 흘림이면(또는 돌려서 보기가 바뀌면) 다시 배치 — 보던 마디는 그대로 보여 준다
-      if (E.isFlow() || !!(E.L && E.L.flow) !== E.isFlow()) { const keep = E.L ? E.currentMeasure() : 0; E.relayout(); E.showMeasure(keep); }
+      if (E.isFlow() || !!(E.L && E.L.flow) !== E.isFlow()) { const keep = E.L ? E.currentMeasure() : 0; E.relayout(); E.showMeasure(keep, { top: !E.sel }); }
       else E.renderPages(true);
     };
     if (window.ResizeObserver) new ResizeObserver(onResize).observe(stage); else window.addEventListener('resize', onResize);
@@ -62,6 +62,8 @@
     if (unsub) unsub();
     unsub = Store.on(why => E.onStore(why));
     root.classList.remove('hidden');
+    E.flowZoom = SJ.Settings.get('flowZoom') || 1;
+    track.scrollTop = 0;
     E.relayout();
     SJ.EditorTools.drawToolbar();
     E.updateTop();
@@ -123,22 +125,35 @@
     if (v === 'page') return false;
     return E.autoFlow();
   };
+  // 흘림 보기 = 세로로 긴 종이 한 장(줄을 위아래로 이어 붙임) · 위아래로 끌어 스크롤 · 두 손가락 = 오선 크기(E.flowZoom)
+  E.flowZoom = 1;
   function flowLayout(s) {
-    const w = Math.max(240, stage.clientWidth), H = Math.max(160, stage.clientHeight);
+    const w = Math.max(240, track.clientWidth || stage.clientWidth), H = Math.max(160, stage.clientHeight);
     const margin = Math.round(Math.min(w, H) * 0.04);
     // 칸 크기: 폰 375px ≈ 11px(쪽 보기의 약 2.3배) · 넓을수록 크게, 15px까지 · 낮은 화면(가로 폰)은 한 줄 전체가 들어가게 —
     // 한 줄 높이 = 보표마다 4칸 + 보표 사이 6칸 + 위아래 여유 8칸(대보표 2개면 22칸 · 예전 '12칸 고정'은 피아노 아래 보표가 잘렸음 · 점검원 ③ 11-02)
     const nSt = Math.max(1, (SJ.Score.visibleStaves ? SJ.Score.visibleStaves(s) : s.staves).length);
     const rows = Math.max(12, 4 * nSt + 7 * (nSt - 1) + 8);   // (묶음 없는 보표 사이는 7칸 · 점검원 ③ 해소 확인)
-    const sp = Math.max(5, Math.min(15, w / 33, (H - 2 * margin) / rows));
+    const base = Math.max(5, Math.min(15, w / 33, (H - 2 * margin) / rows));
+    // 두 손가락으로 키운 만큼(한 줄이 화면 높이를 넘지 않게 · 한 줄에 한 마디는 들어가게)
+    const sp = Math.max(5, Math.min(base * E.flowZoom, (H - 2 * margin) / rows * 1.0001, w / 16, 26));
     // 제목 칸(인쇄용 · mm 크기)은 쪽 보기에서만 — 흘림 보기에서는 제목이 위 막대에 있고 톡 해서 고친다. 줄은 자연 간격으로(쪽 높이에 맞춰 벌리지 않음)
-    return SJ.Layout.layout(s, { pageW: w, pageH: H, margins: { top: margin, bottom: margin, left: margin, right: margin }, staffSize: sp * 4,
+    // 쪽 높이를 끝없이 두어 모든 줄을 한 장에 놓고, 마지막 줄 아래에서 종이를 자른다(빈 종이 없이 · 화면보다 짧으면 화면 높이)
+    const L = SJ.Layout.layout(s, { pageW: w, pageH: 1e7, margins: { top: margin, bottom: margin, left: margin, right: margin }, staffSize: sp * 4,
       titleBlock: false, pageNumbers: false, noJustify: true, ignoreBreaks: true, textScale: sp / (s.page.staffSize / 4) });
+    const p = L.pages[0];
+    let bottom = 0;
+    L.systems.forEach(sy => { bottom = Math.max(bottom, sy.y + sy.bottom * sp); });
+    p.hits.forEach(hh => { if (hh.y1 < 1e6) bottom = Math.max(bottom, hh.y1); });
+    p.h = Math.max(H, Math.ceil(bottom + margin * 2));
+    L.pages.length = 1;
+    return L;
   }
   E.relayout = function () {
     const s = Store.score;
     if (!s) return;
     const flow = E.isFlow();
+    root.classList.toggle('flow', flow);           // 먼저 — 흘림의 줄 길이는 스크롤 칸의 안쪽 폭
     E.L = flow ? flowLayout(s) : SJ.Layout.layout(s);
     E.L.flow = flow;
     E.version++;
@@ -173,6 +188,7 @@
     if (!E.L) return;
     const { w, h: H } = E.stageSize();
     const n = E.L.pages.length;
+    const keepTop = track.scrollTop;               // 흘림: 다시 그려도 보던 곳 그대로
     if (force || slots.length !== n) {
       track.innerHTML = '';
       slots = [];
@@ -182,14 +198,18 @@
         slots.push({ el: slot, drawn: -1 });
       }
     }
-    slots.forEach(s => { s.el.style.width = w + 'px'; });
-    E.setTrack(-E.page * w, false);
+    // 흘림: 종이 한 장이 스크롤 칸 폭 그대로(넘김 없음) / 쪽: 화면 폭 칸을 가로로 늘어놓고 넘긴다
+    const sw = E.L.flow ? (track.clientWidth || w) : w;
+    slots.forEach(s => { s.el.style.width = sw + 'px'; });
+    if (E.L.flow) { track.style.transition = 'none'; track.style.transform = ''; }
+    else E.setTrack(-E.page * w, false);
     for (let i = 0; i < n; i++) {
-      if (Math.abs(i - E.page) <= 1) drawSlot(i, w, H);
+      if (Math.abs(i - E.page) <= 1) drawSlot(i, sw, H);
       else if (slots[i].drawn !== -1) { slots[i].el.innerHTML = ''; slots[i].drawn = -1; }
     }
+    if (E.L.flow) track.scrollTop = keepTop;
     pageLbl.textContent = (E.page + 1) + ' / ' + n;
-    // 흘림 보기: 종이 그림자 · 둥근 모서리 없이 화면이 곧 종이 / '쪽 추가'는 인쇄 쪽 개념이라 쪽 보기에서만
+    // 흘림 보기: 종이 그림자 · 둥근 모서리 없이 화면이 곧 종이 · 쪽 막대 없음 / '쪽 추가'는 인쇄 쪽 개념이라 쪽 보기에서만
     root.classList.toggle('flow', !!E.L.flow);
     E.drawOverlay();
   };
@@ -198,7 +218,7 @@
     if (s.drawn === E.version && s.w === w && s.h === H) return;
     const p = E.L.pages[i];
     const pad = E.L.flow ? 0 : 14;                 // 흘림 보기는 화면이 곧 종이
-    const scale = Math.min((w - pad * 2) / p.w, (H - pad * 2) / p.h);
+    const scale = E.L.flow ? w / p.w : Math.min((w - pad * 2) / p.w, (H - pad * 2) / p.h);
     const pw = p.w * scale, ph = p.h * scale;
     if (!svgCache[i]) svgCache[i] = SJ.SvgRender.page(p, { screen: true, cls: 'score' });
     s.el.innerHTML = '';
@@ -217,6 +237,7 @@
   };
   E.goPage = function (i, opts) {
     if (!E.L) return;
+    if (E.L.flow) return i === 0;                  // 흘림 보기는 한 장(넘김 없음 — 위아래 스크롤)
     const n = E.L.pages.length;
     if (i < 0 || i >= n) { E.edge(i < 0 ? 'l' : 'r'); E.setTrack(-E.page * E.stageSize().w, true); return false; }
     E.resetZoom();
@@ -353,8 +374,7 @@
   function positionFloat() { floatBtn.classList.add('hidden'); }
   E.flash = function (mi) {
     E.flashMi = mi;
-    const b = E.L.measureBox[mi];
-    if (b && b.page !== E.page) E.goPage(b.page, { instant: true });
+    E.reveal(E.L.measureBox[mi]);
     E.drawOverlay();
     setTimeout(() => { E.flashMi = undefined; E.drawOverlay(); }, 1200);
   };
@@ -386,11 +406,55 @@
     SJ.Focus.open(mi, staffId, { eventId: sel.eventId });
   };
 
-  // 그 마디가 있는 쪽(화면)으로
-  E.showMeasure = function (mi) {
+  // 그 마디가 있는 쪽(화면)으로 · 흘림 보기는 그 줄이 보이게 스크롤(이미 보이면 그대로)
+  E.showMeasure = function (mi, opts) {
     const b = E.L && E.L.measureBox[mi];
-    if (b && b.page !== E.page) E.goPage(b.page, { instant: true });
+    if (b) E.reveal(b, opts);
   };
+  // 상자 {page, y0, y1}(쪽 좌표)가 보이게 — opts.top: 그 줄을 위쪽에 두기(화면 크기가 바뀐 뒤 보던 자리 지키기)
+  E.reveal = function (b, opts) {
+    if (!E.L || !b) return;
+    if (!E.L.flow) { if (b.page !== E.page) E.goPage(b.page, { instant: true }); return; }
+    const s = slots[0]; if (!s || !s.paper) return;
+    const sc = s.scale || 1, pad = E.L.spMm * 3 * sc;
+    const y0 = b.y0 * sc - pad, y1 = b.y1 * sc + pad, H = track.clientHeight, top = track.scrollTop;
+    let to = top;
+    if (opts && opts.top) to = y0;
+    else if (y0 < top) to = y0;
+    else if (y1 > top + H) to = Math.min(y0, y1 - H);
+    E.scrollTo(to, opts && opts.smooth);
+  };
+  E.scrollTo = function (y, smooth) {
+    const max = Math.max(0, track.scrollHeight - track.clientHeight);
+    y = U.clamp(y, 0, max);
+    stopFling();
+    if (smooth && !U.reducedMotion()) {
+      const y0 = track.scrollTop, t0 = performance.now(), d = 220;
+      const step = now => { const k = Math.min(1, (now - t0) / d), e = 1 - Math.pow(1 - k, 3); track.scrollTop = y0 + (y - y0) * e; if (k < 1) flingRaf = requestAnimationFrame(step); else flingRaf = 0; };
+      flingRaf = requestAnimationFrame(step);
+    } else track.scrollTop = y;
+  };
+  // 손가락을 놓은 뒤 미끄러지듯 이어 가는 스크롤(관성) — 손동작은 editorGestures.js
+  let flingRaf = 0;
+  function stopFling() { if (flingRaf) { cancelAnimationFrame(flingRaf); flingRaf = 0; return true; } return false; }
+  E.stopFling = stopFling;
+  E.fling = function (v) {          // v = px/ms (아래로 끌면 +)
+    stopFling();
+    if (U.reducedMotion() || Math.abs(v) < 0.05) return;
+    let last = performance.now();
+    const step = now => {
+      const dt = Math.min(40, now - last); last = now;
+      const before = track.scrollTop;
+      track.scrollTop = before - v * dt;
+      v *= Math.pow(0.996, dt);                    // 약 0.35초에 반쯤 · 1초 남짓에 멈춤
+      if (Math.abs(v) < 0.02 || track.scrollTop === before) { flingRaf = 0; return; }
+      flingRaf = requestAnimationFrame(step);
+    };
+    flingRaf = requestAnimationFrame(step);
+  };
+  E.scrollBy = function (dy) { track.scrollTop += dy; };
+  E.paperScale = () => (slots[0] && slots[0].scale) || 1;
+  E.scrollTop = () => track.scrollTop;
   // 지금 보이는 곳의 '인쇄' 쪽 번호 (흘림 보기의 화면 조각 번호는 인쇄 쪽이 아니다)
   E.printPage = function () {
     if (!E.L || !E.L.flow) return E.page;
@@ -402,8 +466,10 @@
   E.currentMeasure = function () {
     if (E.sel && E.sel.type === 'measure') return Math.min(E.sel.mi0, E.sel.mi1);
     if (E.sel && E.sel.mi !== undefined) return E.sel.mi;
-    const ids = Object.keys(E.L.measureBox).filter(mi => E.L.measureBox[mi].page === E.page).map(Number);
-    return ids.length ? ids[0] : 0;
+    // 흘림 보기: 화면 맨 위에 보이는 줄의 첫 마디
+    const sc = (slots[0] && slots[0].scale) || 1, top = E.L.flow ? track.scrollTop / sc : -1;
+    const ids = Object.keys(E.L.measureBox).filter(mi => E.L.measureBox[mi].page === E.page && E.L.measureBox[mi].y1 > top).map(Number);
+    return ids.length ? Math.min.apply(null, ids) : 0;
   };
 
   SJ.Editor = E;
