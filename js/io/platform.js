@@ -80,6 +80,16 @@
     return new Promise(res => { const t = db.transaction('fs').objectStore('fs').getAllKeys(); t.onsuccess = () => res((t.result || []).filter(k => String(k).startsWith(prefix))); t.onerror = () => res([]); });
   }
 
+  /* 웹판 저장이 사라질 위험: 'memory'(이 브라우저는 저장이 안 됨 — 새로고침하면 사라짐) · 'evictable'(브라우저가 오래 안 쓰면 지울 수 있음 —
+   * 아이폰 사파리 탭은 7일) · null(안전: 앱 · 홈 화면 앱 · 브라우저가 '계속 보관'을 허락) */
+  P.storageRisk = async function () {
+    if (P.kind !== 'web') return null;
+    if (!(await idb())) return 'memory';
+    try { if ((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone) return null; } catch (e) { /* 무시 */ }
+    try { if (navigator.storage && navigator.storage.persisted && await navigator.storage.persisted()) return null; } catch (e) { /* 무시 */ }
+    return 'evictable';
+  };
+
   // ── 파일 (앱 전용 저장 공간 안의 상대 경로) ──
   P.read = function (path) {
     if (P.kind === 'android') return Promise.resolve(A.fsRead(path));

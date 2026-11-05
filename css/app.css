@@ -232,6 +232,12 @@ svg .check { fill: #E07B39; }
 .float-input svg { width: 18px; height: 18px; }
 .hint { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: 6; background: var(--surface); color: var(--ink); border: 1px solid var(--line);
   padding: 8px 14px; border-radius: 99px; box-shadow: var(--shadow); font-size: var(--fs-sm); font-weight: 600; white-space: nowrap; max-width: 92vw; overflow: hidden; text-overflow: ellipsis; display: flex; gap: 8px; align-items: center; }
+/* 목록 위 한 줄 안내: 웹판 저장이 사라질 수 있을 때 */
+.risk-bar { display: flex; align-items: center; gap: 8px; margin: 0 16px 8px; padding: 8px 10px; border-radius: var(--r-md, 12px); background: var(--apricot-weak); color: var(--apricot-ink); font-size: var(--fs-sm); }
+.risk-bar.danger { background: var(--danger-weak); color: var(--danger); }
+.risk-bar .tx { flex: 1; min-width: 0; line-height: 1.35; }
+.risk-bar .btn { flex: none; }
+.risk-bar .x { flex: none; border: 0; background: transparent; color: inherit; width: 32px; height: 32px; font-size: 18px; font-weight: 700; }
 .hint .x { border: 0; background: var(--surface-2); border-radius: 50%; width: 26px; height: 26px; font-weight: 700; }
 .popover { position: fixed; z-index: 55; background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); padding: 14px; width: min(92vw, 340px); }
 

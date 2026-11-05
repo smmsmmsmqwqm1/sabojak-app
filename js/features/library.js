@@ -4,7 +4,25 @@
   const U = SJ.U, h = U.h, t = SJ.t, UI = SJ.UI, St = SJ.Storage;
   const Lib = {};
   let root = null, gridEl = null, query = '', sort = 'recent', items = [];
-  let observer = null, fabEl = null, toolsEl = null;
+  let observer = null, fabEl = null, toolsEl = null, riskEl = null;
+
+  /* 웹판에서 저장이 사라질 수 있으면 목록 위에 한 줄로 알린다(악보가 있을 때만 · 그리는 화면에는 안 띄움).
+   * 'memory' = 늘 보임(닫기 없음) · 'evictable' = 닫으면 7일 동안 안 보임 */
+  async function drawRisk() {
+    if (!riskEl) return;
+    let risk = null;
+    try { risk = items.length ? await SJ.Platform.storageRisk() : null; } catch (e) { risk = null; }
+    const hid = SJ.Settings.get('riskHiddenAt');
+    if (risk === 'evictable' && hid && Date.now() - new Date(hid).getTime() < 7 * 86400000) risk = null;
+    riskEl.innerHTML = '';
+    riskEl.classList.toggle('hidden', !risk);
+    riskEl.classList.toggle('danger', risk === 'memory');
+    if (!risk) return;
+    riskEl.append(
+      h('span', { class: 'tx', text: risk === 'memory' ? t('이 브라우저는 악보를 저장하지 못해요. 창을 닫거나 새로고침하면 사라져요 — 전체 백업을 해 두세요.') : t('브라우저에서 쓰면 오래 안 열 때 악보가 지워질 수 있어요. 홈 화면에 추가하거나 전체 백업을 해 두세요.') }),
+      h('button', { class: 'btn soft', text: t('백업하기'), onclick: () => SJ.ExportSheet.backupAll() }));
+    if (risk === 'evictable') riskEl.append(h('button', { class: 'x', text: '×', 'aria-label': t('닫기'), onclick: () => { SJ.Settings.set('riskHiddenAt', new Date().toISOString()); riskEl.classList.add('hidden'); } }));
+  }
 
   Lib.mount = function (container) {
     root = h('div', { class: 'view', id: 'library' });
@@ -33,7 +51,8 @@
     gridEl = h('div', { class: 'grid grow' });
     fabEl = h('button', { class: 'fab', html: SJ.icon('plus') + '<span>' + U.esc(t('새 악보')) + '</span>', onclick: () => SJ.NewScore.open() });
     toolsEl = tools;
-    root.append(head, tools, gridEl, fabEl);
+    riskEl = h('div', { class: 'risk-bar hidden', role: 'status' });
+    root.append(head, tools, riskEl, gridEl, fabEl);
     container.appendChild(root);
     observer = 'IntersectionObserver' in window ? new IntersectionObserver(onSeen, { root: gridEl, rootMargin: '200px' }) : null;
     return root;
@@ -44,6 +63,7 @@
     root.classList.remove('hidden');
     items = await St.list();
     Lib.draw();
+    drawRisk();
   };
   Lib.hide = function () { root.classList.add('hidden'); };
 

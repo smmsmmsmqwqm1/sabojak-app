@@ -51,7 +51,7 @@
   App.openFiles = async function (files) {
     const ids = await SJ.Importer.importFiles(files);
     await SJ.Library.refresh();
-    if (ids.length === 1) App.openEditor(ids[0]);
+    if (ids.length === 1 && !SJ.Importer.lastFull) App.openEditor(ids[0]);   // 전체 되살리기는 목록에 머문다(목록의 [불러오기]와 같게)
   };
 
   App.openEditor = async function (id, opts) {

@@ -113,7 +113,7 @@
       if (!ok) return;
       // 안드로이드 공유 창은 열자마자 '됐다'고 돌아와서, 실제로 어딘가에 저장됐는지 앱이 알 수 없다 → 저장했다고 말하지 않고 확인을 부탁
       if (how === 'share' && PF.kind === 'android') { UI.toast(t('공유 창을 열었어요. 드라이브 · 메일 등에 저장됐는지 확인해 주세요')); return; }
-      if (ok === 'unsure') { UI.toast(t('내려받기를 시작했어요. 다운로드 폴더에 저장됐는지 확인해 주세요')); return; }
+      if (ok === 'unsure') { SJ.Settings.set('lastBackupAt', new Date().toISOString()); UI.toast(t('내려받기를 시작했어요. 다운로드 폴더에 저장됐는지 확인해 주세요')); return; }
       SJ.Settings.set('lastBackupAt', new Date().toISOString());
       UI.toast(t('백업을 저장했어요'));
     } catch (e) { UI.alert(t('백업하지 못했어요'), String(e && e.message || e)); }

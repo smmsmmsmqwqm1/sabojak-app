@@ -404,13 +404,15 @@
     const ask = syms.filter(s => s.amb || s.kind === 'unknown').length;
     const row = h('div', { class: 'nrow hw-row' });
     if (!ink.length) {
-      row.appendChild(h('span', { class: 'hw-hint', text: HW.penSeen() ? t('펜으로 오선에 그려 보세요 · 손가락은 고르기') : t('오선에 손가락으로 그려 보세요 · 다 그리고 [완료]') }));
+      row.appendChild(h('span', { class: 'hw-hint', text: HW.penSeen() ? t('펜으로 오선에 여러 개 이어 그리고 [넣기] · 손가락은 고르기') : t('오선에 여러 개 이어 그리고 [넣기]') }));
       return row;
     }
     // (그리는 중에는 '확인' 단추 · 알아들은 수를 보이지 않음 — 손을 멈추면 나타남)
+    // [넣기] = 그린 것을 마디에 넣고 이 화면에 머묾(마디가 차면 다음 마디로) — 한 마디를 다 그리고 한 번만 눌러도 된다
     if (settled) {
+      row.appendChild(h('button', { class: 'btn primary compact', html: SJ.icon('check') + '<span>' + U.esc(t('넣기')) + '</span>', onclick: () => F().insertInk() }));
       if (ask) row.appendChild(h('button', { class: 'btn warn compact', text: t('? {n}개 확인', { n: ask }), onclick: () => { const s = syms.find(x => x.amb || x.kind === 'unknown'); if (s) chooseFor(s); } }));
-      else row.appendChild(h('span', { class: 'hw-hint ok', text: t('{n}개 알아들었어요 · [완료]나 다음 마디로 넣어요', { n: syms.length }) }));
+      else row.appendChild(h('span', { class: 'hw-hint ok', text: t('{n}개 알아들었어요', { n: syms.length }) }));
     }
     row.appendChild(h('button', { class: 'btn compact', html: SJ.icon('undo') + '<span>' + U.esc(t('한 획 지우기')) + '</span>', onclick: () => HW.undoStroke() }));
     // 모두 지우기는 실수로 눌러도 되돌릴 수 있게(알림의 [되돌리기] = 지우기 전 잉크 그대로)

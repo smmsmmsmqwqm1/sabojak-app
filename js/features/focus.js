@@ -262,6 +262,19 @@
     SJ.Editor.select({ type: 'measure', mi0: mi, mi1: mi, staffId: st.staffId, single: true });
     SJ.Editor.flash(mi);
   };
+  /* [넣기](손글씨): 그린 것을 마디에 넣고 이 화면에 머문다 — 한 마디를 다 그리고 한 번, 또는 몇 개씩 그릴 때마다 눌러도 된다.
+   * 넣은 뒤 마디 박이 꼭 찼으면 다음 마디로 넘어가 이어 그린다(사용자 11-06 "그거 누르면 그 마디 확대된거 나가져버려서") */
+  F.insertInk = async function () {
+    if (!(await flushInk())) return;
+    const st = F.st; if (!st) return;
+    if (F.commit()) { SJ.Platform.haptic('light'); await Store.save(); }
+    if (Store.saveState !== 'error') await SJ.Storage.clearDraft(Store.score.id);
+    if (F.st !== st) return;
+    F.open(st.mi, st.staffId);       // 넣은 마디를 다시 그려 커서를 끝으로
+    let full = false;
+    try { const f = S.measureFill(Store.score, st.mi); const v = ME.voice(Store.score.measures[st.mi], st.staffId, st.vi); full = f.status === 0 && v.events.length > 0; } catch (e) { full = false; }
+    if (full && F.st) { UI.toast(t('{n}마디가 찼어요 → 다음 마디', { n: st.mi + 1 })); await F.go(1); }
+  };
   F.cancel = async function (fromBack) {
     const st = F.st; if (!st) return;
     const ink = SJ.Handwriting && SJ.Handwriting.hasInk();

@@ -43,8 +43,10 @@
     input.forEach((s, i) => {
       const f0 = Gm.features(s, sp);
       const c0 = classify(f0, s, sp);
-      let parts = (c0 === 'other' || c0 === 'head') && f0.h >= 1.8 ? Gm.splitJoined(s, sp) : null;
-      if (parts) {
+      // 기둥 → 빔 → 기둥을 한 획으로 그은 것(ㄷ을 뒤집은 모양 등) = 묶은 8분음표를 그리는 흔한 손 — 꺾인 곳에서 잘라 기둥 · 빔으로 본다(사용자 11-06)
+      const bracket = c0 === 'other' ? beamBracket(s, sp) : null;
+      let parts = bracket || ((c0 === 'other' || c0 === 'head') && f0.h >= 1.8 ? Gm.splitJoined(s, sp) : null);
+      if (parts && !bracket) {
         // 나눈 조각에 머리(고리·빗금)가 있거나, 기둥 구간이 충분히 길 때만 (휘어진 꼬리 끝을 기둥으로 오해하지 않게)
         const runH = Gm.features(parts.find(p => p.run), sp).h;
         let need = 2.4;
@@ -62,6 +64,18 @@
     out.forEach(s => { s.strokes = Array.from(new Set((s.strokes || []).map(i => orig[i]))); });
     return out;
   };
+
+  // 꺾인 곳으로 나눈 조각이 모두 곧은 기둥 · 빔이고, 빔 · 기둥이 하나 이상씩이면 그 조각들(아니면 null)
+  function beamBracket(s, sp) {
+    let segs;
+    try { segs = Gm.segments(s, sp); } catch (e) { return null; }
+    if (!segs || segs.length < 2 || segs.length > 6) return null;
+    const parts = segs.map(g => ({ pts: g.pts.map(p => ({ x: p.x, y: p.y, t: 0 })) }));
+    const kinds = parts.map(p => classify(Gm.features(p, sp), p, sp));
+    if (!kinds.every(k => k === 'stem' || k === 'beam')) return null;
+    if (kinds.indexOf('beam') < 0 || kinds.indexOf('stem') < 0) return null;
+    return parts;
+  }
 
   function recognizeParts(strokes, ctx, orig) {
     const sp = ctx.sp;

@@ -4,7 +4,7 @@
   const U = SJ.U, h = U.h, t = SJ.t, UI = SJ.UI, Store = SJ.Store;
   const E = { L: null, page: 0, tool: 'select', sel: null, clip: null, zoom: 1, panX: 0, panY: 0, version: 0 };
   let root, stage, track, titleEl, saveEl, undoBtn, redoBtn, alignBtn, pageLbl, ctxbar, toolbar, floatBtn, hintEl, edgeL, edgeR;
-  let slots = [], svgCache = {}, unsub = null;
+  let slots = [], svgCache = {}, unsub = null, pagebarEl = null;
 
   E.mount = function (container) {
     root = h('div', { class: 'view hidden', id: 'editor' });
@@ -25,7 +25,7 @@
     hintEl = h('div', { class: 'hint hidden' });
     stage.append(track, edgeL, edgeR, floatBtn, hintEl);
     pageLbl = h('span', { class: 'pn' });
-    const pagebar = h('div', { class: 'pagebar' }, [
+    const pagebar = pagebarEl = h('div', { class: 'pagebar' }, [
       UI.ibtn('left', t('이전 쪽'), () => E.goPage(E.page - 1), { noLabel: true }), pageLbl,
       UI.ibtn('right', t('다음 쪽'), () => E.goPage(E.page + 1), { noLabel: true }),
       h('span', { class: 'addpage' }, [UI.ibtn('plus', t('쪽 추가'), () => SJ.EditorTools.addPage(), { noLabel: false })])
@@ -54,6 +54,7 @@
 
   E.open = async function (scoreId, opts) {
     const r = await SJ.Storage.loadScore(scoreId);
+    if (r && r.tooNew) { UI.alert(t('앱을 최신 버전으로 업데이트해 주세요'), t('이 악보는 더 새로운 버전의 사보작에서 만들어졌어요. 파일은 그대로 두었어요.')); return false; }
     if (!r) { UI.alert(t('악보를 열 수 없어요'), t('파일이 손상되어 열 수 없어요. 원본은 안전하게 따로 보관했어요.')); return false; }
     Store.open(r.score, { readonly: r.status === 'readonly' });
     if (r.status === 'repaired') UI.toast(t('일부를 복구했어요'));
@@ -115,7 +116,8 @@
    * 설정 editView: 'auto' | 'flow' | 'page'. 저장된 악보 배치(인쇄)는 어느 보기에서도 바뀌지 않는다 */
   // 기기 기본: 화면의 짧은 쪽이 700 미만(폰 — 세로든 가로든)이면 흘림. 화면을 돌려도 같은 보기
   E.autoFlow = function () {
-    const w = stage.clientWidth, H = stage.clientHeight;
+    // 높이에는 쪽 막대를 더한다 — 흘림에서는 막대가 숨어 칸이 커지므로, 안 더하면 650~700px 화면에서 두 보기가 끝없이 번갈아 바뀜(점검원 11-02)
+    const w = stage.clientWidth, H = stage.clientHeight + (pagebarEl ? pagebarEl.offsetHeight : 0);
     return w > 0 && Math.min(w, H || w) < 700;
   };
   E.isFlow = function () {

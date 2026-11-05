@@ -69,7 +69,8 @@
         t('“{t}” 악보가 이미 있어요.', { t: exist.title || t('제목 없음') }) + (lower ? '\n' + t('⚠ 지금 가진 것보다 예전 판이에요.') : ''),
         [{ label: t('복사본으로 열기 (추천)'), value: 'copy', kind: 'primary' }, { label: t('덮어쓰기'), value: 'over', kind: lower ? 'danger' : '' }, { label: t('취소'), value: null }]);
       if (!choice) return null;
-      if (choice === 'over' && lower && !(await UI.confirm(t('예전 판으로 덮어쓸까요?'), t('지금 악보는 기록(최근 5개)에 남아 있어요.'), { ok: t('덮어쓰기'), danger: true }))) return null;
+      // 앱에는 '이전 판' 화면이 없으므로(기록은 파일이 깨졌을 때 자동 복구에만 쓰임) 사실대로 알린다(점검원 11-02)
+      if (choice === 'over' && lower && !(await UI.confirm(t('예전 판으로 덮어쓸까요?'), t('지금 악보가 예전 판으로 바뀌어요. 지금 것을 남기려면 [취소] 뒤 [복사본으로 열기]를 고르세요.'), { ok: t('덮어쓰기'), danger: true }))) return null;
       if (choice === 'copy') score = IM.asCopy(score);
       // 덮어쓰기 전에 지금 악보를 기록에 남긴다(안내문 '지금 악보는 기록에 남아 있어요'가 사실이 되게 — 최근 3분 편집이 사라질 수 있었음 · 점검원 ⑥ 11-02)
       if (choice === 'over') { try { await SJ.Storage.snapshotCurrent(score.id); } catch (e) { /* 기록 실패는 덮어쓰기를 막지 않음 */ } }
@@ -148,25 +149,39 @@
     // 악보 폴더 단위
     const groups = {};
     files.forEach(f => { const m = /^scores\/([^/]+)\/(.+)$/.exec(f.path); if (m) (groups[m[1]] = groups[m[1]] || []).push({ rel: m[2], f }); });
+    // 악보 '내용'(id · 어디서 복사됐는지 빼고) — 봉투의 판 번호 · 기기 이름이 달라도 같은 악보로 보게(점검원 11-02)
+    const body = s => { const c = U.clone(s); delete c.id; delete c.origin; return JSON.stringify(c); };
+    let copyBodies = null;      // 기기에 이미 있는 복사본: 원래 id → 내용들 (같은 백업을 또 되살려도 복사본이 또 생기지 않게)
+    const loadCopies = async () => {
+      copyBodies = {};
+      for (const it of list) {
+        const tx = await St.readText('scores/' + it.id + '/score.json');
+        const pr = tx ? F.parse(tx) : null;
+        if (pr && pr.score && pr.score.origin && pr.score.origin.scoreId) (copyBodies[pr.score.origin.scoreId] = copyBodies[pr.score.origin.scoreId] || []).push(body(pr.score));
+      }
+    };
     for (const id of Object.keys(groups)) {
       const g = groups[id];
       const main = g.find(x => x.rel === 'score.json');
       // 본문(score.json)이 깨지고 사본도 없는 악보는 곁 파일도 쓰지 않는다(목록에 떠도 열리지 않는 빈 껍데기가 생기지 않게)
       if (!main) continue;
       const cur = have.has(id) ? await St.readText('scores/' + id + '/score.json') : null;
-      // 기기에 본문이 없거나(새 기기 · 지난번 되살리기가 중간에 끊김) 백업과 똑같으면 → 같은 id 그대로, 기기에 없는 파일만 채운다
-      // (본문을 먼저 써서, 중간에 꺼져도 다음 되살리기가 '같은 악보'로 알아보고 이어서 채운다)
-      if (cur === null || cur === undefined || cur === main.f.text) {
-        const exists = cur === main.f.text;
-        if (!exists) await write(main.f.path, main.f.text);
+      const bk = F.parse(main.f.text);
+      let sameContent = cur === main.f.text;
+      if (!sameContent && cur) { const cr = F.parse(cur); sameContent = !!(cr && cr.score && bk && bk.score && body(cr.score) === body(bk.score)); }
+      // 기기에 본문이 없거나(새 기기 · 지난번 되살리기가 중간에 끊김) 백업과 같은 악보면 → 같은 id 그대로, 기기에 없는 파일만 채운다
+      // (본문을 먼저 써서, 중간에 꺼져도 다음 되살리기가 '같은 악보'로 알아보고 이어서 채운다 · 본문을 못 쓰면 곁 파일도 안 씀)
+      if (cur === null || cur === undefined || sameContent) {
+        if (!sameContent) { const nf = failed.length; await write(main.f.path, main.f.text); if (failed.length > nf) continue; }
         for (const x of g) if (x !== main && !(await St.exists(x.f.path))) await write(x.f.path, x.f.text);
-        if (exists) same++; else ids.push(id);
+        if (sameContent) same++; else ids.push(id);
         continue;
       }
-      const r = F.parse(main.f.text);
-      if (!r || !r.score) continue;
-      const cp = IM.asCopy(r.score);
-      try { await St.saveScore(cp, { snapshot: true }); ids.push(cp.id); copies++; } catch (e) { failed.push('scores/' + cp.id + '/score.json'); }
+      if (!bk || !bk.score) continue;
+      if (!copyBodies) await loadCopies();
+      if ((copyBodies[id] || []).indexOf(body(bk.score)) >= 0) { same++; continue; }   // 지난번 되살리기가 만든 복사본이 이미 있음
+      const cp = IM.asCopy(bk.score);
+      try { await St.saveScore(cp, { snapshot: true }); ids.push(cp.id); copies++; (copyBodies[id] = copyBodies[id] || []).push(body(bk.score)); } catch (e) { failed.push('scores/' + cp.id + '/score.json'); }
     }
     // 템플릿
     const tpls = await St.listTemplates();
@@ -175,7 +190,8 @@
       if ((await St.readText(f.path)) === f.text) continue;
       try {
         const tp = JSON.parse(f.text);
-        if (tpls.some(x => JSON.stringify(x) === f.text)) continue;
+        const strip = o => { const c = Object.assign({}, o); delete c.id; return JSON.stringify(c); };
+        if (tpls.some(x => strip(x) === strip(tp))) continue;      // 같은 내용 템플릿(지난번에 만든 복사본 포함)이 있으면 건너뜀
         tp.id = U.uuid();
         await write('templates/' + tp.id + '.json', JSON.stringify(tp));
       } catch (e) { /* 읽을 수 없는 템플릿은 건너뜀 */ }
@@ -207,6 +223,7 @@
         await write('settings.json', JSON.stringify(Object.assign({}, now, bs)));
         await SJ.Settings.load();
         if (SJ.Settings.lang() !== langBefore && SJ.App && SJ.App.relabel) SJ.App.relabel();
+        else { const sv = document.getElementById('settings'); if (sv && !sv.classList.contains('hidden') && SJ.SettingsView) SJ.SettingsView.show(); }   // 설정 화면의 값도 새로
         settingsRestored = true;
       } catch (e) { /* 설정을 못 읽으면 지금 설정 유지 */ }
     }

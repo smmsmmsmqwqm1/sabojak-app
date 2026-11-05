@@ -8,7 +8,7 @@
   const HISTORY_KEEP = 5;
   const HISTORY_EVERY_MS = 3 * 60 * 1000;
   let index = null;
-  const lastSnap = {};
+  const lastSnap = {}, quarantined = {};
 
   const dir = id => 'scores/' + id + '/';
 
@@ -60,14 +60,22 @@
     const text = await PF.read(dir(id) + 'score.json');
     let r = text ? F.parse(text) : { status: 'invalid' };
     let status = r.status;
+    // 새 판 앱이 만든 악보: 손상이 아니라 앱 업데이트가 필요 — 따로 알린다(점검원 11-02)
+    if (r.status === 'too-new') return { tooNew: true };
     if (r.status === 'invalid' || r.status === 'readonly' || !r.score) {
-      if (text) await St.quarantine(id + '_score.json', text);
+      // 같은 손상 파일은 한 번만 따로 보관(열 때마다 쌓여 백업이 커지지 않게)
+      if (text && !quarantined[id + ':' + text.length]) { quarantined[id + ':' + text.length] = true; await St.quarantine(id + '_score.json', text); }
       // 최근 기록에서 되살리기
       const hist = (await PF.list(dir(id) + 'history')).sort().reverse();
       for (const h of hist) {
         const ht = await PF.read(h);
         const hr = ht ? F.parse(ht) : null;
-        if (hr && hr.score && (hr.status === 'ok' || hr.status === 'repaired')) { r = hr; status = 'recovered'; break; }
+        if (hr && hr.score && (hr.status === 'ok' || hr.status === 'repaired')) {
+          r = hr; status = 'recovered';
+          // 되살린 판을 본문으로 다시 써 둔다(다음에 열 때 또 손상으로 시작하지 않게 · 손상 원본은 위에서 따로 보관함)
+          try { await PF.write(dir(id) + 'score.json', ht); } catch (e) { /* 다음에 다시 시도 */ }
+          break;
+        }
       }
       if (!r.score) return null;
     }
